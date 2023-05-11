@@ -75,5 +75,14 @@ urlpatterns = [
             ]
         ),
     ),
-    path("sales/", include([path("", views.sales, name="sales")])),
+    path(
+        "sales/",
+        include(
+            [
+                path("", views.sales, name="sales"),
+                 path("summary/", views.sales_summary, name="sales-summary"),
+                path("sell-products/", views.sales_products, name="sales-products"),
+            ]
+        ),
+    ),
 ]

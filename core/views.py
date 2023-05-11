@@ -203,9 +203,6 @@ def do_remove_products(request):
     return render(request, "core/products/remove_products_progress.html", context)
 
 
-# remove selected se
-
-
 @login_required
 @user_passes_test(is_admin)
 def add_product(request):
@@ -291,9 +288,6 @@ def remove_a_product_question(request, product_id):
     return render(request, "core/products/remove_a_product_question.html", context)
 
 
-# do_remove_a_product
-
-
 @login_required
 @user_passes_test(is_admin)
 def do_remove_a_product(request, product_id):
@@ -312,6 +306,13 @@ def do_remove_a_product(request, product_id):
 @login_required
 @user_passes_test(is_admin)
 def sales(request):
+    context = {}
+    return render(request, "core/sales/sales.html", context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def sales_summary(request):
     stock_info = Product.objects.all().aggregate(sum_stock=Sum("stock"))
     cost_info = Product.objects.all().aggregate(sum_cost=Sum("cost"))
     sales_info = Product.objects.all().aggregate(sum_sales=Sum("price"))
@@ -321,4 +322,22 @@ def sales(request):
         "after_sales": sales_info["sum_sales"],
         "profit": sales_info["sum_sales"] - cost_info["sum_cost"],
     }
-    return render(request, "core/sales/sales.html", context)
+    return render(request, "core/sales/summary.html", context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def sales_products(request):
+    products = Product.objects.filter(Q(stock__gt=0))
+    context = {
+        "products": [
+            {
+                "id": product.pk,
+                "name": product.name,
+                "stock": product.stock,
+                "price": product.price,
+            }
+            for product in products
+        ],
+    }
+    return render(request, "core/sales/products_for_sale_table.html", context)

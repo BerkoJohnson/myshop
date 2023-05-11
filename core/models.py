@@ -33,6 +33,7 @@ class Order(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     objects = models.Manager()
+    
 
 
 class OrderItem(models.Model):
