@@ -1,0 +1,26 @@
+{% extends "core/_core_base.html" %}
+{% block title %} Products | {% endblock title %}
+{% block content %}
+  <div x-data="{ids: [], selectAll : false,
+    toggleAllCheckboxes() {
+        this.selectAll = !this.selectAll
+        this.ids = [];
+
+        checkboxes = document.querySelectorAll('input[name=products]');
+        [...checkboxes].map((el) => {
+            el.checked = this.selectAll;
+            (this.selectAll) ? this.ids.push(el.value) : this.ids = [];
+        })
+    },}">
+    <div class="grid grid-cols-3 gap-16 w-full">
+      <div id="results"
+           class="col-span-2"
+           hx-get="{% url 'core:load-products' %}?l=10"
+           hx-trigger="load, reload_products_table from:body"
+           hx-target="this"></div>
+      <div class="flex flex-col space-y-6 px-8 py-6 mt-10"
+           id="new_products"
+           >{% include "core/partials/product_action_buttons.html" %}</div>
+    </div>
+  </div>
+{% endblock content %}
