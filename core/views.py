@@ -11,7 +11,7 @@ import csv
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from .forms import ProductCreationForm
-
+import json
 
 @login_required
 @user_passes_test(is_admin)
@@ -328,17 +328,13 @@ def sales_summary(request):
 @login_required
 @user_passes_test(is_admin)
 def sales_products(request):
-    products = Product.objects.filter(Q(stock__gt=0))
+    products = Product.objects.filter(Q(stock__gt=0)).order_by('name')
+    
+    paginator = Paginator(products, 10)
+    
+    page_obj = paginator.get_page(1)
     context = {
-        "products": [
-            {
-                "id": product.pk,
-                "name": product.name,
-                "stock": product.stock,
-                "price": product.price,
-            }
-            for product in products
-        ],
+        "page_obj": page_obj,
     }
     return render(request, "core/sales/products_for_sale_table.html", context)
 
@@ -346,17 +342,74 @@ def sales_products(request):
 
 @login_required
 @user_passes_test(is_admin)
-def load_sales_products(request):
-    products = Product.objects.filter(Q(stock__gt=0))
+def load_sales_products(request):        
+    products = Product.objects.filter(Q(stock__gt=0)).order_by('name')
     
-    paginator = Paginator(products, 15)
-    
-    page = 1
-    if request.GET.get('p') is not None:
+
+    if request.GET.get('p') is not None and request.GET.get('p') != '':
         page = int(request.GET.get('p'))
+        
+    if request.GET.get('s') != '':
+        products = products.filter(Q(name__icontains=request.GET.get('s'))).order_by('name')
     
+    paginator = Paginator(products, 10)
+            
     page_obj = paginator.get_page(page)
+
     context = {
         "page_obj": page_obj
     }
-    return render(request, "core/sales/products_with_stocks_table.html", context)
+    return render(request, "core/sales/products_with_stocks_table_rows.html", context)
+    
+    
+@login_required
+@user_passes_test(is_admin)
+def make_purchase(request):
+    items = [] 
+    if request.method == 'POST':
+        items = [json.loads(item) for item in request.POST.getlist('items')]
+    
+        if len(items) == 0:
+            msg_type = "danger"
+            message = "No items in the cart"
+            context = {"type": msg_type, "message": message}
+            return render(request, "core/sales/purchase_made.html",context)
+        
+        # create new order
+        order = Order.objects.create(user=request.user,)
+        
+        products_checked = []
+        # create order items
+        for item in items:
+            product_check_valid = True
+            product = Product.objects.get(id = item.get('id'))
+            
+            # if the product does not exist
+            if product is None:
+                product_check_valid = False
+                
+            # else if stock is less than the required quantity
+            elif item.get('qty') > product.stock:
+                 product_check_valid = False
+            
+            
+            # else if the calculated total price send is wrong,
+            elif float(item.get('total_price')) != product.price * int(item.get('qty')):
+                 product_check_valid = False
+            
+            # if item passed the product checks
+            if product_check_valid:
+                products_checked.append({'product': product, 'item': item})
+            
+        print(products_checked)
+             
+        message = "Your purchase was successfully made"
+        context = {"type": "success", "message": message}
+        return render(request, "core/sales/purchase_made.html",context)
+
+
+
+@login_required
+@user_passes_test(is_admin)
+def shop_cart(request): 
+    return render(request, "core/sales/cart_table.html")
