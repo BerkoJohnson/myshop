@@ -80,8 +80,9 @@ urlpatterns = [
         include(
             [
                 path("", views.sales, name="sales"),
-                 path("summary/", views.sales_summary, name="sales-summary"),
+                path("summary/", views.sales_summary, name="sales-summary"),
                 path("sell-products/", views.sales_products, name="sales-products"),
+                path("sell-products/load/", views.load_sales_products, name="load-sales-products"),
             ]
         ),
     ),

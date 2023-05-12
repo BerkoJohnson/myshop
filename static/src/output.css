@@ -1568,6 +1568,12 @@ input:checked + .toggle-bg {
   margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
 }
 
+.space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: calc(1rem * var(--tw-space-x-reverse));
+  margin-left: calc(1rem * calc(1 - var(--tw-space-x-reverse)));
+}
+
 .self-center {
   align-self: center;
 }
@@ -2391,6 +2397,16 @@ input:checked + .toggle-bg {
 
 .shadow-red-500\/50 {
   --tw-shadow-color: rgb(240 82 82 / 0.5);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+.shadow-orange-500\/50 {
+  --tw-shadow-color: rgb(255 90 31 / 0.5);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+.shadow-purple-500\/50 {
+  --tw-shadow-color: rgb(144 97 249 / 0.5);
   --tw-shadow: var(--tw-shadow-colored);
 }
 
@@ -3482,6 +3498,16 @@ select {
   --tw-ring-color: rgb(248 180 180 / var(--tw-ring-opacity));
 }
 
+.focus\:ring-orange-300:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(253 186 140 / var(--tw-ring-opacity));
+}
+
+.focus\:ring-purple-300:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(202 191 253 / var(--tw-ring-opacity));
+}
+
 :is(.dark .dark\:border-blue-500) {
   --tw-border-opacity: 1;
   border-color: rgb(63 131 248 / var(--tw-border-opacity));
@@ -3620,6 +3646,16 @@ select {
   --tw-shadow: var(--tw-shadow-colored);
 }
 
+:is(.dark .dark\:shadow-orange-800\/80) {
+  --tw-shadow-color: rgb(138 44 13 / 0.8);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+:is(.dark .dark\:shadow-purple-800\/80) {
+  --tw-shadow-color: rgb(85 33 181 / 0.8);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
 :is(.dark .dark\:ring-offset-gray-800) {
   --tw-ring-offset-color: #1F2937;
 }
@@ -3722,6 +3758,16 @@ select {
 :is(.dark .dark\:focus\:ring-red-900:focus) {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(119 29 29 / var(--tw-ring-opacity));
+}
+
+:is(.dark .dark\:focus\:ring-orange-800:focus) {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(138 44 13 / var(--tw-ring-opacity));
+}
+
+:is(.dark .dark\:focus\:ring-purple-800:focus) {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(85 33 181 / var(--tw-ring-opacity));
 }
 
 :is(.dark .dark\:focus\:ring-offset-gray-800:focus) {

@@ -1,5 +1,5 @@
 <div class="grid grid-cols-4 gap-8"
-     x-data="{products: [], items: [], calcTotalPrice(item) { item.total_price= parseFloat(item.price * item.qty).toFixed(2); return item.total_price;}, totalPayment() { let amnts = this.items.map(item => parseFloat(item.total_price));return amnts.reduce((a, c)=> a + c, 0).toFixed(2)}, add_to_card(product) { if (this.items.findIndex(i => i.id === product.id) === -1) this.items.push({id: product.id, name: product.name, stock: product.stock, qty:1, price:product.price})}}"
+     x-data="{products: [], items: [], calcTotalPrice(item) { item.total_price= parseFloat(item.price * item.qty).toFixed(2); return item.total_price;}, totalPayment() { let amnts = this.items.map(item => parseFloat(item.total_price));return amnts.reduce((a, c)=> a + c, 0).toFixed(2)}, add_to_card(id, name, stock, price) { if (this.items.findIndex(i => i.id === product.id) === -1) this.items.push({id: product.id, name: product.name, stock: product.stock, qty:1, price:product.price})}}"
      x-init="products=JSON.parse(document.querySelector('#products').textContent)">
   <div class="col-span-2 ">
     <div class="flex items-center justify-between pb-4">
@@ -22,14 +22,14 @@
                id="table-search"
                name="s"
                value="{{ search_term }}"
-               hx-get="{% url 'core:load-products' %}?l=10"
+               hx-get="{% url 'core:load-sale-products' %}?l=10"
                hx-trigger="keyup changed delay:500ms"
                hx-target="#results"
                class="block p-2 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg w-60 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                placeholder="Search for items">
       </div>
     </div>
-    <div class="relative shadow-md sm:rounded-lg">
+    <div class="relative shadow-md sm:rounded-lg" >
       <table class="table-fixed border-collapse w-full text-xs text-left text-gray-500 dark:text-gray-400">
         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
           <tr class="flex">
@@ -40,38 +40,7 @@
           </tr>
         </thead>
         <tbody class="overflow-y-auto block h-[500px]">
-          <template x-for="product in products">
-            <tr class="flex items-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="text-center flex-1 px-3 py-2 font-medium text-gray-900 dark:text-white"
-                  x-text="product.name"></td>
-              <td class="text-center flex-1 px-3 py-2" x-text="product.stock"></td>
-              <td class="text-center flex-1 px-3 py-2 text-gray-900 dark:text-white"
-                  x-text="product.price"></td>
-              <td class="text-center flex-1 px-3 py-2">
-                <button data-popover-target="popover-right"
-                        data-popover-placement="right"
-                        data-popover-trigger="hover"
-                        type="button"
-                        @click="() => add_to_card(product)"
-                        type="button"
-                        class="text-[10px] text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-300 font-medium rounded-full px-2 py-1 text-center mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900">
-                  Add to Cart
-                </button>
-                <div data-popover
-                     id="popover-right"
-                     role="tooltip"
-                     class="absolute z-10 invisible inline-block w-64 text-sm text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-sm opacity-0 dark:text-gray-400 dark:border-gray-600 dark:bg-gray-800">
-                  <div class="px-3 py-2 bg-gray-100 border-b border-gray-200 rounded-t-lg dark:border-gray-600 dark:bg-gray-700">
-                    <h3 class="font-semibold text-gray-900 dark:text-white">Popover right</h3>
-                  </div>
-                  <div class="px-3 py-2">
-                    <p>And here's some amazing content. It's very engaging. Right?</p>
-                  </div>
-                  <div data-popper-arrow></div>
-                </div>
-              </td>
-            </tr>
-          </template>
+            {{ include "core/sales/products_with_stocks_table_rows.html" }}
         </tbody>
       </table>
     </div>

@@ -341,3 +341,22 @@ def sales_products(request):
         ],
     }
     return render(request, "core/sales/products_for_sale_table.html", context)
+
+
+
+@login_required
+@user_passes_test(is_admin)
+def load_sales_products(request):
+    products = Product.objects.filter(Q(stock__gt=0))
+    
+    paginator = Paginator(products, 15)
+    
+    page = 1
+    if request.GET.get('p') is not None:
+        page = int(request.GET.get('p'))
+    
+    page_obj = paginator.get_page(page)
+    context = {
+        "page_obj": page_obj
+    }
+    return render(request, "core/sales/products_with_stocks_table.html", context)

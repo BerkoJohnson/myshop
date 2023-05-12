@@ -19,7 +19,7 @@
       </thead>
       <tbody>
         <template x-for="item in items" x-cloak x-show="items.length > 0">
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <tr class="text-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
             <td class="w-28 px-3 py-2 font-semibold text-gray-900 dark:text-white"
                 x-text="item.name"></td>
             <td class="flex items-center space-x-3 w-28">
@@ -80,7 +80,7 @@
           </tr>
         </template>
         <tr x-cloak x-show="items.length === 0">
-          <td colspan="5">Cart is empty</td>
+          <td colspan="5" class="text-center font-medium">Cart is empty</td>
         </tr>
       </tbody>
       <tfoot>
@@ -90,9 +90,16 @@
         </tr>
       </tfoot>
     </table>
-    <div class="px-4 py-1 flex items-center justify-between bg-green-800 text-white ">
-      <h2 class="text-xl font-semibold">Total Payment</h2>
-      <span class="text-xl font-semibold" x-text="totalPayment()"></span>
+    <div class="flex items-center justify-between">
+      <div class="px-4 py-1 flex items-center space-x-4 bg-gray-800 text-white ">
+        <h2 class="text-[10px] font-semibold">Total Payment</h2>
+        <span class="text-xl font-semibold" x-text="totalPayment()"></span>
+      </div>
+      <button
+      @click="console.log(items)"
+      class="text-white bg-gradient-to-r from-green-500 via-green-600 to-green-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 shadow-lg shadow-blue-500/50 dark:shadow-lg dark:shadow-blue-800/80 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2">
+        Accept Payment
+      </button>
     </div>
   </div>
 </div>
