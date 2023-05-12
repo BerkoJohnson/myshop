@@ -76,15 +76,17 @@ urlpatterns = [
         ),
     ),
     path(
-        "purchases/",
+        "orders/",
         include(
             [
-                path("", views.sales, name="sales"),
-                path("summary/", views.sales_summary, name="sales-summary"),
-                path("sell-products/", views.sales_products, name="sales-products"),
-                path("sell-products/load/", views.load_sales_products, name="load-sales-products"),
-                path("make-purchase/",views.make_purchase, name="make-purchase"),
-                path("shop-cart/",views.shop_cart, name="shop-cart")
+                path("", views.orders, name="orders"),
+                path("summary/", views.orders_summary, name="orders-summary"),
+                path("sell-products/", views.orders_products, name="orders-products"),
+                path("sell-products/load/", views.load_orders_products, name="load-orders-products"),
+                path("make-order/",views.make_order, name="make-order"),
+                path("shop-cart/",views.shop_cart, name="shop-cart"),
+                path("out-of-stock/",views.out_of_stock, name="out-of-stock"),
+                path("out-of-stock/load",views.load_out_of_stock, name="load-out-of-stock"),
             ]
         ),
     ),

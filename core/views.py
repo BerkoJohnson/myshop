@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
 from .models import Product, Order, OrderItem
@@ -12,6 +13,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from .forms import ProductCreationForm
 import json
+
 
 @login_required
 @user_passes_test(is_admin)
@@ -305,111 +307,184 @@ def do_remove_a_product(request, product_id):
 
 @login_required
 @user_passes_test(is_admin)
-def sales(request):
+def orders(request):
     context = {}
-    return render(request, "core/sales/sales.html", context)
+    return render(request, "core/orders/orders.html", context)
 
 
 @login_required
 @user_passes_test(is_admin)
-def sales_summary(request):
+def orders_summary(request):
     stock_info = Product.objects.all().aggregate(sum_stock=Sum("stock"))
     cost_info = Product.objects.all().aggregate(sum_cost=Sum("cost"))
-    sales_info = Product.objects.all().aggregate(sum_sales=Sum("price"))
+    orders_info = Product.objects.all().aggregate(sum_orders=Sum("price"))
     context = {
         "stock_sum": stock_info["sum_stock"],
         "cash_invested": cost_info["sum_cost"],
-        "after_sales": sales_info["sum_sales"],
-        "profit": sales_info["sum_sales"] - cost_info["sum_cost"],
+        "after_orders": orders_info["sum_orders"],
+        "profit": orders_info["sum_orders"] - cost_info["sum_cost"],
     }
-    return render(request, "core/sales/summary.html", context)
+    return render(request, "core/orders/summary.html", context)
 
 
 @login_required
 @user_passes_test(is_admin)
-def sales_products(request):
-    products = Product.objects.filter(Q(stock__gt=0)).order_by('name')
-    
+def orders_products(request):
+    products = Product.objects.filter(Q(stock__gt=0)).order_by("name")
+
     paginator = Paginator(products, 10)
-    
+
     page_obj = paginator.get_page(1)
     context = {
         "page_obj": page_obj,
     }
-    return render(request, "core/sales/products_for_sale_table.html", context)
-
+    return render(request, "core/orders/products_for_sale_table.html", context)
 
 
 @login_required
 @user_passes_test(is_admin)
-def load_sales_products(request):        
-    products = Product.objects.filter(Q(stock__gt=0)).order_by('name')
-    
+def load_orders_products(request):
+    products = Product.objects.filter(Q(stock__gt=0)).order_by("name")
 
-    if request.GET.get('p') is not None and request.GET.get('p') != '':
-        page = int(request.GET.get('p'))
-        
-    if request.GET.get('s') != '':
-        products = products.filter(Q(name__icontains=request.GET.get('s'))).order_by('name')
-    
+    if request.GET.get("p") is not None and request.GET.get("p") != "":
+        page = int(request.GET.get("p"))
+
+    if request.GET.get("s") is not None and request.GET.get("s") != "":
+        products = products.filter(Q(name__icontains=request.GET.get("s"))).order_by(
+            "name"
+        )
+
     paginator = Paginator(products, 10)
-            
+
     page_obj = paginator.get_page(page)
 
-    context = {
-        "page_obj": page_obj
-    }
-    return render(request, "core/sales/products_with_stocks_table_rows.html", context)
-    
-    
+    context = {"page_obj": page_obj}
+    return render(request, "core/orders/products_with_stocks_table_rows.html", context)
+
+
 @login_required
 @user_passes_test(is_admin)
-def make_purchase(request):
-    items = [] 
-    if request.method == 'POST':
-        items = [json.loads(item) for item in request.POST.getlist('items')]
-    
+def make_order(request):
+    items = []
+    if request.method == "POST":
+        items = [json.loads(item) for item in request.POST.getlist("items")]
+
         if len(items) == 0:
             msg_type = "danger"
-            message = "No items in the cart"
+            message = "No items in the cart. Add items to the cart and make payment."
             context = {"type": msg_type, "message": message}
-            return render(request, "core/sales/purchase_made.html",context)
-        
-        # create new order
-        order = Order.objects.create(user=request.user,)
-        
-        products_checked = []
+            return render(request, "core/orders/order_made.html", context)
+
+        new_order_items = []
         # create order items
         for item in items:
             product_check_valid = True
-            product = Product.objects.get(id = item.get('id'))
-            
+            product = Product.objects.get(id=item.get("id"))
+
             # if the product does not exist
             if product is None:
                 product_check_valid = False
-                
+
             # else if stock is less than the required quantity
-            elif item.get('qty') > product.stock:
-                 product_check_valid = False
-            
-            
+            elif item.get("qty") > product.stock:
+                product_check_valid = False
+
             # else if the calculated total price send is wrong,
-            elif float(item.get('total_price')) != product.price * int(item.get('qty')):
-                 product_check_valid = False
-            
+            elif float(item.get("total_price")) != product.price * int(item.get("qty")):
+                product_check_valid = False
+
             # if item passed the product checks
             if product_check_valid:
-                products_checked.append({'product': product, 'item': item})
-            
-        print(products_checked)
-             
-        message = "Your purchase was successfully made"
-        context = {"type": "success", "message": message}
-        return render(request, "core/sales/purchase_made.html",context)
+                new_order_items.append({"product": product, "item": item})
 
+        if len(items) != len(new_order_items):
+            message = "Something went wrong. Your order could not be initiated."
+            context = {"type": "danger", "message": message}
+            return render(request, "core/orders/order_made.html", context)
+
+        with transaction.atomic():
+            try:
+                # create new order
+                order_obj = Order.objects.create(
+                    user=request.user,
+                )
+                for ordItem in new_order_items:
+                    order_item = OrderItem.objects.create(
+                        order=order_obj,
+                        product=ordItem["product"],
+                        qty_bought=ordItem["item"].get("qty"),
+                        paid_amount=float(item.get("total_price")),
+                    )
+
+                    # update each product's stock to reflect the last order
+                    ordItem["product"].stock -= ordItem["item"].get("qty")
+                    ordItem["product"].save()
+
+                # update overall amount paid in this order
+                order_obj.overall_amount_paid = sum(
+                    float(item.get("total_price")) for item in items
+                )
+            except Exception as e:
+                # if anything goes wrong, all changes will be reversed.
+                message = "Your order was not successfully. Try again at a later time."
+                msg_type = "danger"
+            else:
+                # order was successful
+                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."
+                msg_type = "success"
+                context = {"type": msg_type, "message": message}
+                response = render(request, "core/orders/order_made.html", context)
+                response["HX-TRIGGER"] = "reload_products_with_stocks"
+                return response
+
+        context = {"type": msg_type, "message": message}
+        return render(request, "core/orders/order_made.html", context)
 
 
 @login_required
 @user_passes_test(is_admin)
-def shop_cart(request): 
-    return render(request, "core/sales/cart_table.html")
+def shop_cart(request):
+    return render(request, "core/orders/cart_table.html")
+
+
+@login_required
+@user_passes_test(is_admin)
+def get_todays_orders(request):
+    return render(request, "core/orders/cart_table.html")
+
+
+@login_required
+@user_passes_test(is_admin)
+def out_of_stock(request):
+    products = Product.objects.filter(Q(stock=0)).order_by("name")
+
+    paginator = Paginator(products, 10)
+
+    page_obj = paginator.get_page(1)
+    context = {
+        "page_obj": page_obj,
+    }
+    return render(request, "core/orders/out_of_stock.html", context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def load_out_of_stock(request):
+    products = Product.objects.filter(Q(stock=0)).order_by("name")
+
+    # if page is set
+    if request.GET.get("p") is not None and request.GET.get("p") != "":
+        page = int(request.GET.get("p"))
+
+    # if search term is set
+    if request.GET.get("s") is not None and request.GET.get("s") != "":
+        products = products.filter(Q(name__icontains=request.GET.get("s"))).order_by(
+            "name"
+        )
+
+    paginator = Paginator(products, 10)
+
+    page_obj = paginator.get_page(page)
+
+    context = {"page_obj": page_obj}
+    return render(request, "core/orders/out_of_stock_items.html")

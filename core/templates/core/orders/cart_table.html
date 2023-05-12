@@ -93,7 +93,7 @@
         <span class="text-xl font-semibold" x-text="totalPayment()"></span>
       </div>
       <button :disabled="items.length === 0"
-      @click="() => { if (items.length === 0) { window.alert('Cart is empty') } else { htmx.ajax('POST','/purchases/make-purchase/', {target: '#cart', swap:'innerHTML', values: { items: items }}) }}"
+      @click="() => { if (items.length === 0) { window.alert('Cart is empty') } else { htmx.ajax('POST','/orders/make-order/', {target: '#cart', swap:'innerHTML', values: { items: items }}) }}"
       class="text-white bg-gradient-to-r from-green-500 via-green-600 to-green-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 shadow-lg shadow-blue-500/50 dark:shadow-lg dark:shadow-blue-800/80 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2">
         Accept Payment
       </button>

@@ -1,6 +1,6 @@
 {% for product in page_obj %}
   {% if forloop.last and page_obj.has_next %}
-    <tr hx-get="{% url 'core:load-sales-products' %}?p={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% endif %}"
+    <tr hx-get="{% url 'core:load-orders-products' %}?p={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% endif %}"
         hx-swap="afterend"
         hx-target="this"
         hx-trigger="intersect once"

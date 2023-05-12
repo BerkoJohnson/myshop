@@ -21,7 +21,7 @@
         <input type="text"
                id="table-search"
                name="s"
-               hx-get="{% url 'core:load-sales-products' %}?p=1"
+               hx-get="{% url 'core:load-orders-products' %}?p=1"
                hx-trigger="keyup changed delay:500ms"
                hx-target="#tbody"
                hx-swap="beforeend"
@@ -30,7 +30,7 @@
       </div>
     </div>
     <div class="relative shadow-md sm:rounded-lg" >
-      <table  id="sales_products_table" class="table-fixed border-collapse w-full text-xs text-left text-gray-500 dark:text-gray-400">
+      <table id="orders_products_table" class="table-fixed border-collapse w-full text-xs text-left text-gray-500 dark:text-gray-400">
         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
           <tr class="flex">
             <th scope="col" class="text-center flex-1 px-3 py-2">Product</th>
@@ -39,14 +39,14 @@
             <th scope="col" class="text-center flex-1 px-3 py-2">Action</th>
           </tr>
         </thead>
-        <tbody _="on keyup from #table-search remove <#sales_products_table>tbody>tr/>" class="overflow-y-auto block h-[500px]" id="tbody">
-            {% include "core/sales/products_with_stocks_table_rows.html" %}
+        <tbody hx-target="this" hx-swap="innerHTML" hx-get="{% url 'core:load-orders-products' %}?p=1&s=" hx-trigger="reload_products_with_stocks from:body" _="on keyup from #table-search remove <#orders_products_table>tbody>tr/>" class="overflow-y-auto block h-[500px]" id="tbody">
+            {% include "core/orders/products_with_stocks_table_rows.html" %}
         </tbody>
       </table>
     </div>
   </div>
  <div id="cart" class="col-span-2 bg-green-100 p-4 pb-0">
-  {% include "core/sales/cart_table.html" %}
+  {% include "core/orders/cart_table.html" %}
  </div>
 </div>
 

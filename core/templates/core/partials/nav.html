@@ -37,9 +37,9 @@
              {% if 'products' in request.path %}aria-current="page"{% endif %}>Products</a>
         </li>
         <li>
-          <a href="{% url 'core:sales' %}"
-             class="block py-2 pl-3 pr-4 {% if 'sales/' in request.path %}text-white bg-green-700 md:text-green-700 md:bg-transparent{% endif %} rounded  md:p-0 dark:text-white"
-             {% if '/sales' in request.path %}aria-current="page"{% endif %}>Sales</a>
+          <a href="{% url 'core:orders' %}"
+             class="block py-2 pl-3 pr-4 {% if 'orders/' in request.path %}text-white bg-green-700 md:text-green-700 md:bg-transparent{% endif %} rounded  md:p-0 dark:text-white"
+             {% if '/orders' in request.path %}aria-current="page"{% endif %}>orders</a>
         </li>
         <li>
           <a href="{% url 'auth:logout' %}"

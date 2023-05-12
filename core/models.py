@@ -29,6 +29,7 @@ class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,
                              on_delete=models.CASCADE)
     customer_name = models.CharField(max_length=255, null=True, blank=True)
+    overall_amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 

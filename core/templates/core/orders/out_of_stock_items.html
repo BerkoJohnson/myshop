@@ -1,0 +1,24 @@
+{% load humanize %}
+{% for product in page_obj %}
+  {% if forloop.last and page_obj.has_next %}
+    <tr hx-get="{% url 'core:load-out-of-stock' %}?p={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% endif %}"
+        hx-swap="afterend"
+        hx-target="this"
+        hx-trigger="intersect once"
+        hx-vals="js:{ s: document.querySelector('#table-search').value }"
+        class="flex items-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+    {% else %}
+      <tr class="flex items-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+      {% endif %}
+      <td class="text-center flex-1 px-3 py-2 font-medium text-gray-900 dark:text-white">{{ product }}</td>
+      <td class="text-center flex-1 px-3 py-2">{{ product.stock }}</td>
+      <td class="text-center flex-1 px-3 py-2">{{ product.updated|naturaltime }}</td>
+      <td class="text-center flex-1 px-3 py-2">
+        <button type="button"
+                type="button"
+                class="text-[10px] text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full px-2 py-1 text-center mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-900">
+          Update Stock
+        </button>
+      </td>
+    </tr>
+  {% endfor %}

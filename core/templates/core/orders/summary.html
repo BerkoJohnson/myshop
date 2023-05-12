@@ -1,6 +1,6 @@
 {% load humanize %}
 <div class="flex flex-col space-y-4">
-  <h2 class="font-semibold text-xl border-b-2 border-gray-800">Product Sales</h2>
+  <h2 class="font-semibold text-xl border-b-2 border-gray-800">Orders Summary</h2>
   <div id="results"  class="grid grid-cols-3 gap-8 grid-rows-2">
     <div class="text-center px-8 py-6 flex flex-col space-y-5 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-blue-700">
       <h2 class="text-sm font-semibold underline">Entire Stock</h2>
@@ -18,10 +18,10 @@
       </p>
     </div>
     <div class="text-center px-8 py-6 flex flex-col space-y-5 rounded-md bg-gradient-to-r from-orange-400 via-orange-500 to-orange-700">
-      <h2 class="text-sm font-semibold underline">Expected Sales</h2>
+      <h2 class="text-sm font-semibold underline">Expected orders</h2>
       <div class="flex flex-col">
         <p class="text-white">
-          GHs<span class="font-bold text-3xl">{{ after_sales|intcomma }}</span>
+          GHs<span class="font-bold text-3xl">{{ after_orders|intcomma }}</span>
         </p>
       </div>
     </div>
