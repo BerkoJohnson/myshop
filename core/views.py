@@ -13,6 +13,11 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from .forms import ProductCreationForm
 import json
+import datetime as dt
+from django.utils import timezone
+import pdfkit
+from django.template import loader
+from django.conf import settings
 
 
 @login_required
@@ -413,7 +418,7 @@ def make_order(request):
                         order=order_obj,
                         product=ordItem["product"],
                         qty_bought=ordItem["item"].get("qty"),
-                        paid_amount=float(item.get("total_price")),
+                        paid_amount=float(ordItem["item"].get("total_price")),
                     )
 
                     # update each product's stock to reflect the last order
@@ -424,15 +429,38 @@ def make_order(request):
                 order_obj.overall_amount_paid = sum(
                     float(item.get("total_price")) for item in items
                 )
+                order_obj.save()
             except Exception as e:
                 # if anything goes wrong, all changes will be reversed.
                 message = "Your order was not successfully. Try again at a later time."
                 msg_type = "danger"
             else:
                 # order was successful
+                today = dt.date.today()
+                date_start = timezone.make_aware(
+                    dt.datetime(
+                        year=today.year, month=today.month, day=today.day, hour=6
+                    )
+                )
+                date_end = timezone.make_aware(
+                    dt.datetime(
+                        year=today.year, month=today.month, day=today.day, hour=20
+                    )
+                )
+                order_list = Order.objects.filter(
+                    Q(user=request.user),
+                    Q(created__gte=date_start),
+                    Q(created__lt=date_end),
+                ).order_by("created")
+                order_number = len(order_list)
                 message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."
                 msg_type = "success"
-                context = {"type": msg_type, "message": message}
+                context = {
+                    "type": msg_type,
+                    "message": message,
+                    "order": order_obj,
+                    "order_number": order_number,
+                }
                 response = render(request, "core/orders/order_made.html", context)
                 response["HX-TRIGGER"] = "reload_products_with_stocks"
                 return response
@@ -464,7 +492,7 @@ def out_of_stock(request):
     context = {
         "page_obj": page_obj,
     }
-    return render(request, "core/orders/out_of_stock.html", context)
+    return render(request, "core/products/out_of_stock.html", context)
 
 
 @login_required
@@ -472,9 +500,12 @@ def out_of_stock(request):
 def load_out_of_stock(request):
     products = Product.objects.filter(Q(stock=0)).order_by("name")
 
+    page = None
     # if page is set
     if request.GET.get("p") is not None and request.GET.get("p") != "":
         page = int(request.GET.get("p"))
+    else:
+        page = 1
 
     # if search term is set
     if request.GET.get("s") is not None and request.GET.get("s") != "":
@@ -487,4 +518,73 @@ def load_out_of_stock(request):
     page_obj = paginator.get_page(page)
 
     context = {"page_obj": page_obj}
-    return render(request, "core/orders/out_of_stock_items.html")
+    return render(request, "core/products/out_of_stock_items.html", context)
+
+
+def retrieve_todays_sale(user, today):
+    date_start = timezone.make_aware(
+        dt.datetime(year=today.year, month=today.month, day=today.day, hour=6)
+    )
+    date_end = timezone.make_aware(
+        dt.datetime(year=today.year, month=today.month, day=today.day, hour=21)
+    )
+    
+    order_list = Order.objects.filter(
+        Q(user=user), Q(created__gte=date_start), Q(created__lt=date_end)
+    ).order_by("created")
+    
+    aggregated = order_list.aggregate(sum_total=Sum("overall_amount_paid"))
+    
+    return order_list, aggregated['sum_total']
+
+@login_required
+@user_passes_test(is_admin)
+def today_orders(request):
+    today = dt.date.today()
+    orders, sum_total = retrieve_todays_sale(request.user, today)
+    print(orders, sum_total)
+    
+    context = {"orders": orders, "todays_total_orders": sum_total}
+    return render(request, "core/orders/todays_orders.html", context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def print_todays_orders(request):
+    today = dt.date.today()
+    
+    orders, sum_total = retrieve_todays_sale(request.user, today)
+    
+    context = {"orders": orders, "todays_total_orders": sum_total}
+    html = loader.render_to_string("core/orders/prints/todays_sales.html", context)
+    output = pdfkit.from_string(
+        html,
+        output_path=False,
+        css=f"{settings.BASE_DIR}/productionfiles/src/output.css",
+    )
+    response = HttpResponse(output)
+    response["Content-Type"] = "application/pdf"
+    response["Content-Disposition"] = f'attachment; filename="{today:%d%m%Y%h%M}.pdf"'
+    return response
+
+
+def view_order(request, order_id, order_number):
+    # order_stock = Order.objects.aggregate(sum_stock = Sum('orderitem__stock'))
+    order = Order.objects.get(id=order_id)
+    context = {"order": order, "order_number": order_number}
+    return render(request, "core/orders/order_details.html", context)
+
+
+def print_order_pdf(request, order_id, order_number):
+    order = Order.objects.get(id=order_id)
+    context = {"order": order, "order_number": order_number}
+    html = loader.render_to_string("core/orders/prints/order_details.html", context)
+    output = pdfkit.from_string(
+        html,
+        output_path=False,
+        css=f"{settings.BASE_DIR}/productionfiles/src/output.css",
+    )
+    response = HttpResponse(output)
+    response["Content-Type"] = "application/pdf"
+    response["Content-Disposition"] = f'attachment; filename="{order_id}.pdf"'
+    return response

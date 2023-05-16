@@ -48,3 +48,8 @@ class OrderItem(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     objects = models.Manager()
+    
+    def __str__(self):
+        return f"{self.product},{self.qty_bought},{self.created:%d-%m-%y %H:%M}"
+
+    

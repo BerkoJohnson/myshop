@@ -72,6 +72,8 @@ urlpatterns = [
                     views.do_remove_a_product,
                     name="do-remove-a-product",
                 ),
+                path("out-of-stock/",views.out_of_stock, name="out-of-stock"),
+                path("out-of-stock/load",views.load_out_of_stock, name="load-out-of-stock"),
             ]
         ),
     ),
@@ -84,9 +86,11 @@ urlpatterns = [
                 path("sell-products/", views.orders_products, name="orders-products"),
                 path("sell-products/load/", views.load_orders_products, name="load-orders-products"),
                 path("make-order/",views.make_order, name="make-order"),
+                path("today-orders/",views.today_orders, name="today-orders"),
+                path("today-orders/print",views.print_todays_orders, name="print-todays-orders"),
                 path("shop-cart/",views.shop_cart, name="shop-cart"),
-                path("out-of-stock/",views.out_of_stock, name="out-of-stock"),
-                path("out-of-stock/load",views.load_out_of_stock, name="load-out-of-stock"),
+                path("view-order/<uuid:order_id>/<int:order_number>",views.view_order, name="view-order"),
+                path("view-order/<uuid:order_id>/<int:order_number>/print-pdf",views.print_order_pdf, name="print-order-pdf"),                
             ]
         ),
     ),

@@ -1,9 +1,7 @@
-<div class="grid grid-cols-3 gap-x-8 gap-y-6">
-<div class="col-span-2 flex flex-col space-y-4 border-2 border-gray-200 bg-gray-100 px-4 py-1.5 rounded-md">
-
+<div class="flex flex-col space-y-4 border-2 border-gray-200 bg-gray-100 px-4 py-1.5 rounded-md">
   <div class="flex items-center justify-between pb-4">
     <div>
-      <h2 class="font-semibold text-xl border-b-2 border-gray-800">Products Out of Stock</h2>
+      <h2 class="text-xl font-semibold border-b-2 border-gray-800">Products Out of Stock</h2>
     </div>
     <label for="table-search" class="sr-only">Search</label>
     <div class="relative">
@@ -23,26 +21,31 @@
              hx-get="{% url 'core:load-out-of-stock' %}?p=1"
              hx-trigger="keyup changed delay:500ms"
              hx-target="#tbody"
-             hx-swap="beforeend"
+             hx-swap="innerHTML"
              class="block p-2 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg w-60 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
              placeholder="Search for items">
     </div>
   </div>
-  <div class="relative shadow-md sm:rounded-lg" >
-    <table id="orders_products_table" class="table-fixed border-collapse w-full text-xs text-left text-gray-500 dark:text-gray-400">
+  <div class="relative shadow-md sm:rounded-lg">
+    <table id="orders_products_table"
+           class="w-full text-xs text-left text-gray-500 border-collapse table-fixed dark:text-gray-400">
       <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
         <tr class="flex">
-          <th scope="col" class="text-center flex-1 px-3 py-2">Product</th>
-          <th scope="col" class="text-center flex-1 px-3 py-2">Stock</th>
-          <th scope="col" class="text-center flex-1 px-3 py-2">Last Updated</th>
-          <th scope="col" class="text-center flex-1 px-3 py-2">Action</th>
+          <th scope="col" class="flex-1 px-3 py-2 text-center">Product</th>
+          <th scope="col" class="flex-1 px-3 py-2 text-center">Stock</th>
+          <th scope="col" class="flex-1 px-3 py-2 text-center">Last Updated</th>
+          <th scope="col" class="flex-1 px-3 py-2 text-center">Action</th>
         </tr>
       </thead>
-      <tbody hx-target="this" hx-swap="innerHTML" hx-get="{% url 'core:load-orders-products' %}?p=1&s=" hx-trigger="reload_products_with_stocks from:body" _="on keyup from #table-search remove <#orders_products_table>tbody>tr/>" class="overflow-y-auto block h-[450px]" id="tbody">
-        {% include "core/orders/out_of_stock_items.html" %}
+      <tbody hx-target="this"
+             hx-swap="innerHTML"
+             hx-get="{% url 'core:load-orders-products' %}?p=1&s="
+             hx-trigger="reload_products_with_stocks from:body"
+             _="on keyup from #table-search remove <#orders_products_table>tbody>tr/>"
+             class="overflow-y-auto block h-[450px]"
+             id="tbody">
+        {% include "core/products/out_of_stock_items.html" %}
       </tbody>
     </table>
   </div>
-</div>
-<div id="update_stock_form" class="border-2 border-gray-100 bg-gray-50 px-4 py-2 rounded-md"></div>
 </div>
