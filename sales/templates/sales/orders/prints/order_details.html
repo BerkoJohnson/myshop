@@ -1,0 +1,45 @@
+{% load humanize %}
+<h1 style="font-size:3rem; text-align:center;">My Shop</h1>
+<h3 style="font-size:1rem; text-align:center;">Order {{ order_number }} Receipt</h3>
+<div style="text-align:center;">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Item Name</th>
+        <th scope="col">
+          Unit Price
+          <br>
+          (GHs)
+        </th>
+        <th scope="col">Qty Bought</th>
+        <th scope="col">
+          Total Price
+          <br>
+          (GHs)
+        </th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      {% for order_item in order.orderitem_set.all %}
+        <tr>
+          <td>{{ order_item.product }}</td>
+          <td>{{ order_item.product.price }}</td>
+          <td>{{ order_item.qty_bought }}</td>
+          <td>{{ order_item.paid_amount }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<br>
+<br>
+<br>
+<br>
+<div>
+  <div>
+    <h4>
+      Total Amount Paid:  <span>GHs {{ order.overall_amount_paid }}</span>
+    </h4>
+    <small style="color: #444;">Order Completed On: {{ order.created }}</small>
+  </div>
+</div>

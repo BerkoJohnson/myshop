@@ -10,7 +10,7 @@ from celery.result import AsyncResult
 from celery_progress.backend import Progress
 import csv
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F
 from .forms import ProductCreationForm
 import json
 import datetime as dt
@@ -19,6 +19,7 @@ import pdfkit
 from django.template import loader
 from django.conf import settings
 import os
+
 
 @login_required
 @user_passes_test(is_admin)
@@ -528,22 +529,22 @@ def retrieve_todays_sale(user, today):
     date_end = timezone.make_aware(
         dt.datetime(year=today.year, month=today.month, day=today.day, hour=21)
     )
-    
+
     order_list = Order.objects.filter(
         Q(user=user), Q(created__gte=date_start), Q(created__lt=date_end)
     ).order_by("created")
-    
+
     aggregated = order_list.aggregate(sum_total=Sum("overall_amount_paid"))
-    
-    return order_list, aggregated['sum_total']
+
+    return order_list, aggregated["sum_total"]
+
 
 @login_required
 @user_passes_test(is_admin)
 def today_orders(request):
     today = dt.date.today()
     orders, sum_total = retrieve_todays_sale(request.user, today)
-    print(orders, sum_total)
-    
+
     context = {"orders": orders, "todays_total_orders": sum_total}
     return render(request, "core/orders/todays_orders.html", context)
 
@@ -552,15 +553,20 @@ def today_orders(request):
 @user_passes_test(is_admin)
 def print_todays_orders(request):
     today = dt.date.today()
-    
+
     orders, sum_total = retrieve_todays_sale(request.user, today)
-    
+
     context = {"orders": orders, "todays_total_orders": sum_total}
-    
+
     todays_date = f"{today:%d%m%Y}"
-    filename = "Sale_%s.pdf" %(todays_date)
-    pdf = render_attached_pdf(relative_template_path="core/orders/prints/todays_sales.html", context=context, file_name=filename)
+    filename = "Sale_%s.pdf" % (todays_date)
+    pdf = render_attached_pdf(
+        relative_template_path="core/orders/prints/todays_sales.html",
+        context=context,
+        file_name=filename,
+    )
     return pdf
+
 
 def view_order(request, order_id, order_number):
     # order_stock = Order.objects.aggregate(sum_stock = Sum('orderitem__stock'))
@@ -572,10 +578,47 @@ def view_order(request, order_id, order_number):
 def print_order_pdf(request, order_id, order_number):
     order = Order.objects.get(id=order_id)
     context = {"order": order, "order_number": order_number}
-    filename = "Invoice_%s.pdf" %(order_id)
+    filename = "Invoice_%s.pdf" % (order_id)
     pdf = render_attached_pdf(
-        relative_template_path="core/orders/prints/order_details.html", 
-        context=context, 
+        relative_template_path="core/orders/prints/order_details.html",
+        context=context,
         file_name=filename,
-        )
+    )
     return pdf
+
+
+def retrive_weekly_stats(request):
+    today = dt.date.today()
+    this_week_number = today.isocalendar().week
+    this_month_number = today.month
+    this_year_number = today.year
+
+    week_start = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
+    week_end = dt.date.fromisocalendar(this_year_number, this_week_number, 7)
+
+    order_lists = Order.objects.filter(created__range=(week_start, week_end))
+
+    orderitems = OrderItem.objects.filter(order__in=order_lists)
+    
+    orderitems_summary = orderitems.annotate(
+        total_cost=F("qty_bought") * F("product__cost"),
+        total_sold=F("qty_bought") * F("product__price"),
+        total_profit = F("qty_bought") * F("product__price") - F("qty_bought") * F("product__cost") 
+    ).aggregate(
+        total_cost=Sum("total_cost"),
+        total_sold=Sum("total_sold"),
+        stock_sold=Sum("qty_bought"),
+        total_profit = Sum("total_profit")
+    )
+    
+    context = {
+        "total_cost": orderitems_summary["total_cost"] if orderitems_summary["total_cost"] else 0_00,
+        "total_sold": orderitems_summary["total_sold"] if orderitems_summary["total_sold"] else 0_00,
+        "stock_sold": orderitems_summary["stock_sold"] if orderitems_summary["stock_sold"] else 0,
+        "profit": orderitems_summary["total_profit"] if orderitems_summary["total_profit"] else 0_00
+    }
+    return render(
+        request,
+        "core/orders/weekly_totals.html",
+        context,
+    )
