@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "core",
     "sales",
     "celery_progress",
+    "wkhtmltopdf",
 ]
 
 MIDDLEWARE = [
@@ -154,3 +155,4 @@ LOGOUT_REDIRECT_URL = "auth:login"
 # Celery settings
 CELERY_BROKER_URL = "redis://localhost:6379"
 CELERY_RESULT_BACKEND = "redis://localhost:6379"
+WKHTMLTOPDF_CMD = "/usr/local/bin/wkhtmltopdf"

@@ -3,7 +3,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
 from .models import Product, Order, OrderItem
-from utils import is_admin
+from utils import is_admin, render_attached_pdf
 import io
 from .tasks import import_products_task, remove_products_task
 from celery.result import AsyncResult
@@ -18,7 +18,7 @@ from django.utils import timezone
 import pdfkit
 from django.template import loader
 from django.conf import settings
-
+import os
 
 @login_required
 @user_passes_test(is_admin)
@@ -556,17 +556,11 @@ def print_todays_orders(request):
     orders, sum_total = retrieve_todays_sale(request.user, today)
     
     context = {"orders": orders, "todays_total_orders": sum_total}
-    html = loader.render_to_string("core/orders/prints/todays_sales.html", context)
-    output = pdfkit.from_string(
-        html,
-        output_path=False,
-        css=f"{settings.BASE_DIR}/productionfiles/src/output.css",
-    )
-    response = HttpResponse(output)
-    response["Content-Type"] = "application/pdf"
-    response["Content-Disposition"] = f'attachment; filename="{today:%d%m%Y%h%M}.pdf"'
-    return response
-
+    
+    todays_date = f"{today:%d%m%Y}"
+    filename = "Sale_%s.pdf" %(todays_date)
+    pdf = render_attached_pdf(relative_template_path="core/orders/prints/todays_sales.html", context=context, file_name=filename)
+    return pdf
 
 def view_order(request, order_id, order_number):
     # order_stock = Order.objects.aggregate(sum_stock = Sum('orderitem__stock'))
@@ -578,13 +572,10 @@ def view_order(request, order_id, order_number):
 def print_order_pdf(request, order_id, order_number):
     order = Order.objects.get(id=order_id)
     context = {"order": order, "order_number": order_number}
-    html = loader.render_to_string("core/orders/prints/order_details.html", context)
-    output = pdfkit.from_string(
-        html,
-        output_path=False,
-        css=f"{settings.BASE_DIR}/productionfiles/src/output.css",
-    )
-    response = HttpResponse(output)
-    response["Content-Type"] = "application/pdf"
-    response["Content-Disposition"] = f'attachment; filename="{order_id}.pdf"'
-    return response
+    filename = "Invoice_%s.pdf" %(order_id)
+    pdf = render_attached_pdf(
+        relative_template_path="core/orders/prints/order_details.html", 
+        context=context, 
+        file_name=filename,
+        )
+    return pdf
