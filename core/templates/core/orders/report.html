@@ -1,0 +1,33 @@
+{% load humanize %}
+<div class="grid grid-cols-2 grid-rows-2 gap-8 w-full">
+    <div class="flex space-x-6 items-start px-8 py-6 w-full h-full space-y-5 text-center rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-blue-700">
+      <h2 class="text-sm font-semibold underline">Items Sold</h2>
+      <div class="flex flex-col">
+        <p class="text-white">
+          <span class="text-4xl font-bold">{{ stock_sold|intcomma }}</span> Products
+        </p>
+      </div>
+    </div>
+    <div class="flex space-x-6 items-start px-8 py-6 w-full h-full space-y-5 text-center rounded-md bg-gradient-to-r from-fuchsia-400 via-fuchsia-500 to-fuchsia-700">
+      <h2 class="text-sm font-semibold underline">Total Items Cost</h2>
+      <p class="text-white">
+        GHs<span class="text-4xl font-bold">{{ total_cost|intcomma }}</span>
+      </p>
+    </div>
+    <div class="flex space-x-6 items-start px-8 py-6 w-full h-full space-y-5 text-center rounded-md bg-gradient-to-r from-orange-400 via-orange-500 to-orange-700">
+      <h2 class="text-sm font-semibold underline">Total Sales</h2>
+      <div class="flex flex-col">
+        <p class="text-white">
+          GHs<span class="text-4xl font-bold">GHs {{ total_sold|intcomma }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="flex space-x-6 items-start px-8 py-6 w-full h-full space-y-5 text-center rounded-md bg-gradient-to-r from-green-400 via-green-500 to-green-700">
+      <h2 class="text-sm font-semibold underline">Total Profit</h2>
+      <div class="flex flex-col">
+        <p class="text-white">
+          GHs<span class="text-4xl font-bold">{{ profit|intcomma }}</span>
+        </p>
+      </div>
+    </div>
+  </div>

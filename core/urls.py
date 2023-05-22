@@ -19,7 +19,7 @@ urlpatterns = [
                 path("import-products/", views.import_products, name="import-products"),
                 path(
                     "import-products/do",
-                    views.do_import_products,
+                    views.do_import_products,  # type: ignore
                     name="do-import-products",
                 ),
                 path(
@@ -72,8 +72,12 @@ urlpatterns = [
                     views.do_remove_a_product,
                     name="do-remove-a-product",
                 ),
-                path("out-of-stock/",views.out_of_stock, name="out-of-stock"),
-                path("out-of-stock/load",views.load_out_of_stock, name="load-out-of-stock"),
+                path("out-of-stock/", views.out_of_stock, name="out-of-stock"),
+                path(
+                    "out-of-stock/load",
+                    views.load_out_of_stock,
+                    name="load-out-of-stock",
+                ),
             ]
         ),
     ),
@@ -84,14 +88,44 @@ urlpatterns = [
                 path("", views.orders, name="orders"),
                 path("summary/", views.orders_summary, name="orders-summary"),
                 path("sell-products/", views.orders_products, name="orders-products"),
-                path("sell-products/load/", views.load_orders_products, name="load-orders-products"),
-                path("make-order/",views.make_order, name="make-order"),
-                path("today-orders/",views.today_orders, name="today-orders"),
-                path("today-orders/print",views.print_todays_orders, name="print-todays-orders"),
-                path("shop-cart/",views.shop_cart, name="shop-cart"),
-                path("view-order/<uuid:order_id>/<int:order_number>",views.view_order, name="view-order"),
-                path("view-order/<uuid:order_id>/<int:order_number>/print-pdf",views.print_order_pdf, name="print-order-pdf"),
-                path("weekly-sales", views.retrive_weekly_stats, name="weekly-sales")
+                path(
+                    "sell-products/load/",
+                    views.load_orders_products,
+                    name="load-orders-products",
+                ),
+                path("make-order/", views.make_order, name="make-order"),
+                path("today-orders/", views.today_orders, name="today-orders"),
+                path(
+                    "today-orders/print",
+                    views.print_todays_orders,
+                    name="print-todays-orders",
+                ),
+                path("shop-cart/", views.shop_cart, name="shop-cart"),
+                path(
+                    "view-order/<uuid:order_id>/<int:order_number>",
+                    views.view_order,
+                    name="view-order",
+                ),
+                path(
+                    "view-order/<uuid:order_id>/<int:order_number>/print-pdf",
+                    views.print_order_pdf,
+                    name="print-order-pdf",
+                ),
+                path(
+                    "sales-reports",
+                    views.retrive_reports,
+                    name="sales-reports",
+                ),
+                path(
+                    "sales-reports/by_duration/",
+                    views.retrive_reports_by_duration,
+                    name="sales-reports-duration",
+                ),
+                path(
+                    "sales-reports/by_dates/",
+                    views.retrive_reports_by_dates,
+                    name="sales-reports-dates",
+                ),
             ]
         ),
     ),

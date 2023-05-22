@@ -1,0 +1,38 @@
+{% load humanize %}
+<div class="flex flex-col space-y-2">
+  <div class="flex flex-col space-y-4">
+    <h2 class="text-xl font-semibold border-b-2 border-gray-800">Sales Reports</h2>
+    <div class="flex items-center space-x-10 ">
+      <div class="flex flex-col space-y-1 flex-1">
+        <label for="duration">Duration</label>
+        <select name="duration" id="duration" class="border-2 border-gray-500 px-2 py-1"
+          hx-post="{% url 'core:sales-reports-duration' %}" hx-target="#reports" hx-swap="innerHTML"
+          hx-trigger="change changed">
+          <option value="">Select Duration</option>
+          <option value="daily">Today</option>
+          <option value="weekly">This Week</option>
+          <option value="monthly">This Month</option>
+          <option value="yearly">This Year</option>
+        </select>
+      </div>
+      <div x-data="{start: '', end: ''}"
+        class="flex space-x-6 items-center flex-1 bg-gray-500/30 border border-gray-300 px-2 py-1">
+        <div class="flex flex-col space-y-0.5">
+          <label for="date_start" class="text-[10px] font-semibold">Start Date</label>
+          <input x-model="start" type="date" name="date_start" id="date_start" class="px-2 py-1">
+        </div>
+        <div class="flex flex-col space-y-0.5">
+          <label for="date_end" class="text-[10px] font-semibold">End Date</label>
+          <input x-model="end" type="date" name="date_end" id="date_end" class="px-2 py-1">
+        </div>
+        <button :disabled="start === '' || end === ''" hx-post="{% url 'core:sales-reports-dates' %}"
+          hx-target="#reports" hx-swap="innerHTML"
+          hx-vals="js:{date_start: document.querySelector('#date_start').value, date_end: document.querySelector('#date_end').value}"
+          class="text-white px-3 py-2 rounded-md bg-gray-600 hover:bg-gray-500 font-semibold text-sm">Fetch
+          Report</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reports" class="mt-6 border-2 border-gray-100 px-6 py-4 rounded-md bg-gray-200/40 w-full h-full"></div>
+</div>

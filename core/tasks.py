@@ -1,10 +1,11 @@
 
 
 from typing import Optional
+from xml.etree.ElementTree import QName
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 import time
-from core.models import Product
+from core.models import Order, Product
 
 
 @shared_task(bind=True)
@@ -60,6 +61,7 @@ def remove_products_task(self, ids: list[str]):
     for product in products:
         try:
             product.delete()
+            Order.objects.filter(orderitem__product=product).delete()
         except Exception as e:
             print(e)
         else:

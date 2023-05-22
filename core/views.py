@@ -1,7 +1,10 @@
+import os
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
+
+from django.conf import settings
 from .models import Product, Order, OrderItem
 from utils import is_admin, render_attached_pdf
 import io
@@ -15,10 +18,7 @@ from .forms import ProductCreationForm
 import json
 import datetime as dt
 from django.utils import timezone
-import pdfkit
-from django.template import loader
-from django.conf import settings
-import os
+import calendar as cal
 
 
 @login_required
@@ -67,7 +67,7 @@ def load_products(request):
 
     pages = [
         {"number": page, "allow": type(page) == int}
-        for page in list(page_obj.paginator.get_elided_page_range())
+        for page in list(page_obj.paginator.get_elided_page_range())  # type: ignore
     ]
 
     context = {
@@ -114,7 +114,7 @@ def do_import_products(request):
             csv_reader = csv.DictReader(file)
             rows = [row for row in csv_reader if row.get("PRODUCT") != ""]
 
-            import_task = import_products_task.delay(rows)
+            import_task = import_products_task.delay(rows)  # type: ignore
             task_id = import_task.task_id
             progress = Progress(AsyncResult(task_id))
             info = progress.get_info()
@@ -197,7 +197,7 @@ def do_remove_products(request):
         if request.POST.getlist("ids") is not None:
             ids = request.POST.getlist("ids")
 
-    remove_task = remove_products_task.delay(ids)
+    remove_task = remove_products_task.delay(ids)  # type: ignore
     task_id = remove_task.task_id
     progress = Progress(AsyncResult(task_id))
     info = progress.get_info()
@@ -272,7 +272,7 @@ def update_product(request, product_id):
                 print(e)
                 context = {
                     "type": "danger",
-                    "message": "The product's update could not be saved. Try again later.",
+                    "message": "The product's update could not be saved. Try again later.",  # noqa: E501
                 }
                 return render(request, "core/products/response.html", context)
             else:
@@ -324,11 +324,22 @@ def orders_summary(request):
     stock_info = Product.objects.all().aggregate(sum_stock=Sum("stock"))
     cost_info = Product.objects.all().aggregate(sum_cost=Sum("cost"))
     orders_info = Product.objects.all().aggregate(sum_orders=Sum("price"))
+    profit = 0
+
+    if orders_info["sum_orders"] is not None and cost_info["sum_cost"] is not None:
+        profit = float(orders_info["sum_orders"]) - float(cost_info["sum_cost"])
+
     context = {
-        "stock_sum": stock_info["sum_stock"],
-        "cash_invested": cost_info["sum_cost"],
-        "after_orders": orders_info["sum_orders"],
-        "profit": orders_info["sum_orders"] - cost_info["sum_cost"],
+        "stock_sum": stock_info["sum_stock"]
+        if stock_info["sum_stock"] is not None
+        else 0,
+        "cash_invested": cost_info["sum_cost"]
+        if cost_info["sum_cost"] is not None
+        else 0,
+        "after_orders": orders_info["sum_orders"]
+        if orders_info["sum_orders"] is not None
+        else 0,
+        "profit": profit,
     }
     return render(request, "core/orders/summary.html", context)
 
@@ -369,7 +380,7 @@ def load_orders_products(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@user_passes_test(is_admin)  # type: ignore
 def make_order(request):
     items = []
     if request.method == "POST":
@@ -392,7 +403,7 @@ def make_order(request):
                 product_check_valid = False
 
             # else if stock is less than the required quantity
-            elif item.get("qty") > product.stock:
+            elif int(item.get("qty")) > product.stock:
                 product_check_valid = False
 
             # else if the calculated total price send is wrong,
@@ -415,15 +426,15 @@ def make_order(request):
                     user=request.user,
                 )
                 for ordItem in new_order_items:
-                    order_item = OrderItem.objects.create(
+                    OrderItem.objects.create(
                         order=order_obj,
                         product=ordItem["product"],
-                        qty_bought=ordItem["item"].get("qty"),
+                        qty_bought=int(ordItem["item"].get("qty")),
                         paid_amount=float(ordItem["item"].get("total_price")),
                     )
 
                     # update each product's stock to reflect the last order
-                    ordItem["product"].stock -= ordItem["item"].get("qty")
+                    ordItem["product"].stock -= int(ordItem["item"].get("qty"))
                     ordItem["product"].save()
 
                 # update overall amount paid in this order
@@ -431,7 +442,7 @@ def make_order(request):
                     float(item.get("total_price")) for item in items
                 )
                 order_obj.save()
-            except Exception as e:
+            except Exception:
                 # if anything goes wrong, all changes will be reversed.
                 message = "Your order was not successfully. Try again at a later time."
                 msg_type = "danger"
@@ -454,7 +465,7 @@ def make_order(request):
                     Q(created__lt=date_end),
                 ).order_by("created")
                 order_number = len(order_list)
-                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."
+                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."  # noqa: E501
                 msg_type = "success"
                 context = {
                     "type": msg_type,
@@ -523,15 +534,10 @@ def load_out_of_stock(request):
 
 
 def retrieve_todays_sale(user, today):
-    date_start = timezone.make_aware(
-        dt.datetime(year=today.year, month=today.month, day=today.day, hour=6)
-    )
-    date_end = timezone.make_aware(
-        dt.datetime(year=today.year, month=today.month, day=today.day, hour=21)
-    )
-
     order_list = Order.objects.filter(
-        Q(user=user), Q(created__gte=date_start), Q(created__lt=date_end)
+        Q(user=user),
+        Q(created__day=today.day),
+        Q(created__month=today.month),
     ).order_by("created")
 
     aggregated = order_list.aggregate(sum_total=Sum("overall_amount_paid"))
@@ -560,14 +566,23 @@ def print_todays_orders(request):
 
     todays_date = f"{today:%d%m%Y}"
     filename = "Sale_%s.pdf" % (todays_date)
+    # css = []
+    # if os.path.isfile(os.path.join(settings.BASE_DIR, '/productionfiles/src/output.css')):
+
+    #     css.append(os.path.join(settings.BASE_DIR, '/productionfiles/src/output.css'))
+
     pdf = render_attached_pdf(
         relative_template_path="core/orders/prints/todays_sales.html",
         context=context,
         file_name=filename,
+        # css=css
     )
+
     return pdf
 
 
+@login_required
+@user_passes_test(is_admin)
 def view_order(request, order_id, order_number):
     # order_stock = Order.objects.aggregate(sum_stock = Sum('orderitem__stock'))
     order = Order.objects.get(id=order_id)
@@ -575,6 +590,8 @@ def view_order(request, order_id, order_number):
     return render(request, "core/orders/order_details.html", context)
 
 
+@login_required
+@user_passes_test(is_admin)
 def print_order_pdf(request, order_id, order_number):
     order = Order.objects.get(id=order_id)
     context = {"order": order, "order_number": order_number}
@@ -587,38 +604,124 @@ def print_order_pdf(request, order_id, order_number):
     return pdf
 
 
-def retrive_weekly_stats(request):
-    today = dt.date.today()
-    this_week_number = today.isocalendar().week
-    this_month_number = today.month
-    this_year_number = today.year
+@login_required
+@user_passes_test(is_admin)
+def retrive_reports(request):
+    return render(
+        request,
+        "core/orders/sales_reports.html",
+        {},
+    )
 
-    week_start = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
-    week_end = dt.date.fromisocalendar(this_year_number, this_week_number, 7)
 
-    order_lists = Order.objects.filter(created__range=(week_start, week_end))
+def generate_reports(order_list):
+    orderitems = OrderItem.objects.filter(order__in=order_list)
 
-    orderitems = OrderItem.objects.filter(order__in=order_lists)
-    
     orderitems_summary = orderitems.annotate(
         total_cost=F("qty_bought") * F("product__cost"),
         total_sold=F("qty_bought") * F("product__price"),
-        total_profit = F("qty_bought") * F("product__price") - F("qty_bought") * F("product__cost") 
+        total_profit=F("qty_bought") * F("product__price")
+        - F("qty_bought") * F("product__cost"),
     ).aggregate(
         total_cost=Sum("total_cost"),
         total_sold=Sum("total_sold"),
         stock_sold=Sum("qty_bought"),
-        total_profit = Sum("total_profit")
+        total_profit=Sum("total_profit"),
     )
-    
+
     context = {
-        "total_cost": orderitems_summary["total_cost"] if orderitems_summary["total_cost"] else 0_00,
-        "total_sold": orderitems_summary["total_sold"] if orderitems_summary["total_sold"] else 0_00,
-        "stock_sold": orderitems_summary["stock_sold"] if orderitems_summary["stock_sold"] else 0,
-        "profit": orderitems_summary["total_profit"] if orderitems_summary["total_profit"] else 0_00
+        "total_cost": orderitems_summary["total_cost"]
+        if orderitems_summary["total_cost"]
+        else 0_00,
+        "total_sold": orderitems_summary["total_sold"]
+        if orderitems_summary["total_sold"]
+        else 0_00,
+        "stock_sold": orderitems_summary["stock_sold"]
+        if orderitems_summary["stock_sold"]
+        else 0,
+        "profit": orderitems_summary["total_profit"]
+        if orderitems_summary["total_profit"]
+        else 0_00,
     }
-    return render(
-        request,
-        "core/orders/weekly_totals.html",
-        context,
-    )
+    return context
+
+
+@login_required
+@user_passes_test(is_admin)
+def retrive_reports_by_duration(request):
+    duration = "weekly"
+    if request.method == "POST":
+        if request.POST.get("duration") != "":
+            duration = request.POST.get("duration")
+
+        context = {}
+        today = dt.date.today()
+        order_lists = []
+        if duration == "weekly":
+            this_week_number = today.isocalendar().week
+            this_year_number = today.year
+            week_start_date = dt.date.fromisocalendar(
+                this_year_number, this_week_number, 1
+            )
+            week_end_date = week_start_date + dt.timedelta(days=7)
+            week_start = dt.date(
+                year=today.year, month=today.month, day=week_start_date.day
+            )
+            week_end = dt.date(
+                year=today.year, month=today.month, day=week_end_date.day
+            )
+            order_lists = Order.objects.filter(created__range=(week_start, week_end))
+        elif duration == "monthly":
+            # month_start = dt.date(year=today.year, month=today.month, day=1)
+            # _, number_of_days = cal.monthrange(year=today.year, month=today.month)
+            # month_end = month_start + dt.timedelta(days=number_of_days - 1)
+            # print(month_start, month_end)
+            order_lists = Order.objects.filter(created__month=today.month)
+        elif duration == "yearly":
+            order_lists = Order.objects.filter(created__year=today.year)
+        else:
+            order_lists = Order.objects.filter(
+                created__day=today.day,
+                created__month=today.month,
+                created__year=today.year,
+            )
+
+        context = generate_reports(order_lists)
+        return render(
+            request,
+            "core/orders/report.html",
+            context,
+        )
+    else:
+        return HttpResponse("Not allowed")
+
+
+@login_required
+@user_passes_test(is_admin)
+def retrive_reports_by_dates(request):
+    if request.method == "POST":
+        context = {}
+        start_date_str = request.POST.get("date_start")
+        end_date_str = request.POST.get("date_end")
+        start_date = None
+        end_date = None
+        order_lists = []
+        if start_date_str != "":
+            sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
+            start_date = dt.date(year=sYear, month=sMonth, day=sDay)
+
+        if end_date_str != "":
+            eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
+            end_date = dt.date(year=eYear, month=eMonth, day=eDay)
+
+        if start_date is not None and end_date is not None:
+            order_lists = Order.objects.filter(created__range=(start_date, end_date))
+            context = generate_reports(order_list=order_lists)
+
+        return render(
+            request,
+            "core/orders/report.html",
+            context,
+        )
+    else:
+        return HttpResponse("Not allowed")
