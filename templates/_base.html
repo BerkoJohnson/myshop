@@ -9,7 +9,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}{% endblock title %} MyShop</title>
+  <title>{% block title %}{% endblock title %} Noble Cosmetics</title>
 
   {% compress css %}
   <link rel="stylesheet" href="{% static 'src/output.css' %}">
@@ -73,6 +73,13 @@
 
   </div>
   {% endblock body %}
+  <div 
+  id="indicator" class="bg-gray-500/50">
+  <img loading.lazy
+  alt="indicator"
+class="htmx-indicator spinner"
+src="{% static 'images/svg/loaders/bars.svg' %}"/>
+</div>
   <script src="{% static 'js/_hyperscript.js' %}"></script>
   <script src="{% static 'js/htmx.min.js' %}"></script>
   <script src="{% static 'js/htmx-debug.js' %}"></script>

@@ -1,13 +1,13 @@
 {% extends "core/_core_base.html" %}
 {% block title %}
-  Home |
+  Admin Desk |
 {% endblock title %}
 {% block nav %}
   {% include "core/partials/nav.html" %}
 {% endblock nav %}
 {% block content %}
   <div class=" p-16">
-    <h2 class="font-semibold text-4xl mb-16">Welcome to MyShop</h2>
+    <h2 class="text-4xl mb-16">Welcome to <b class="text-yellow-500 font-semibold">Noble Cosmetics</b></h2>
     <div class="grid md:grid-cols-3 gap-12 bg-gray-100 border border-gray-300 p-6 md:p-12">
       <a class="text-center rounded-md uppercase tracking-wide text-white px-16 py-12 text-2xl font-medium  bg-orange-600 hover:bg-orange-700 "
          href="{% url 'core:products' %}">

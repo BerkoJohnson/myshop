@@ -1,0 +1,64 @@
+{% load static %}
+{% load humanize %}
+<html>
+
+    <head>
+        <link rel="stylesheet" href="http://127.0.0.1:8000/static/src/output.css">
+    </head>
+
+    <body>
+        <div class="mx-24">
+            <div class="text-center border-b-2 border-gray-200">
+                <h1 class="text-2xl font-semibold text-red-600">Noble Cosmetics Ltd.</h1>
+                <h3 class="font-semibold">Sales Reports for <span class="underline">{% if users == 'all' %}All Users {% else %} {{ users }} {% endif %}</span></h3>
+                <h5 class="text-gray-500 text-sm">From {{ start_date|date:"D, jS F Y" }} to {{ end_date|date:"D, jS F Y"  }} </h5>
+
+            </div>
+            <div class="mt-12 mx-10 w-full">
+              <div class="flex items-start w-full">
+                <table class="text-center mb-6 text-xs text-left text-gray-500 border-collapse table-fixed dark:text-gray-400">
+                    <tbody>
+                        <tr>
+                            <th class="px-3 py-1.5 border border-gray-100">Products Sold</th>
+                            <td class="px-3 py-1.5 border border-gray-100">{{ stock_sold|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <th class="px-3 py-1.5 border border-gray-100">Total Products Cost</th>
+                            <td class="px-3 py-1.5 border border-gray-100">GHs {{ total_cost|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <th class="px-3 py-1.5 border border-gray-100">Total Sales</th>
+                            <td class="px-3 py-1.5 border border-gray-100">GHs {{ total_sold|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <th class="px-3 py-1.5 border border-gray-100">Total Profit</th>
+                            <td class="px-3 py-1.5 border border-gray-100">GHs {{ profit|intcomma }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="ml-6 flex-1">
+                    <table class="w-full text-xs text-left text-gray-500 border-collapse dark:text-gray-400">
+                      <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr class="flex border border-gray-300">
+                          <th scope="col" class="w-16 px-3 py-2 text-center">S/No.</th>
+                          <th scope="col" class="flex-1 px-3 py-2 text-center">Item Name</th>
+                          <th scope="col" class="flex-1 px-3 py-2 text-center">Qty Bought</th>
+                          <th scope="col" class="flex-1 px-3 py-2 text-center">Total Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody class="border border-gray-300" id="tbody">
+                        {% for item in items %}
+                          <tr class="flex items-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <td class="w-16 px-3 py-2 text-center">{{ forloop.counter }}</td>
+                            <td class="flex-1 px-3 py-2 font-medium text-center text-gray-900 dark:text-white">{{ item.product__name }}</td>
+                            <td class="flex-1 px-3 py-2 text-center">{{ item.sum_qty }}</td>
+                            <td class="flex-1 px-3 py-2 text-center">GHs{{ item.amount }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+            </div>
+          </div>
+        </div>
+    </body>
+</html>

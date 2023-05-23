@@ -1,3 +1,4 @@
+from itertools import count
 import os
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
@@ -5,8 +6,10 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from django.conf import settings
+
+from authapp.models import Account
 from .models import Product, Order, OrderItem
-from utils import is_admin, render_attached_pdf
+from utils import generate_code, is_admin, render_attached_pdf
 import io
 from .tasks import import_products_task, remove_products_task
 from celery.result import AsyncResult
@@ -18,7 +21,7 @@ from .forms import ProductCreationForm
 import json
 import datetime as dt
 from django.utils import timezone
-import calendar as cal
+from django.db.models import QuerySet
 
 
 @login_required
@@ -320,14 +323,16 @@ def orders(request):
 
 @login_required
 @user_passes_test(is_admin)
-def orders_summary(request):
+def products_summary(request):
     stock_info = Product.objects.all().aggregate(sum_stock=Sum("stock"))
     cost_info = Product.objects.all().aggregate(sum_cost=Sum("cost"))
     orders_info = Product.objects.all().aggregate(sum_orders=Sum("price"))
     profit = 0
 
     if orders_info["sum_orders"] is not None and cost_info["sum_cost"] is not None:
-        profit = float(orders_info["sum_orders"]) - float(cost_info["sum_cost"])
+        profit = round(
+            float(orders_info["sum_orders"]) - float(cost_info["sum_cost"]), 2
+        )
 
     context = {
         "stock_sum": stock_info["sum_stock"]
@@ -341,7 +346,7 @@ def orders_summary(request):
         else 0,
         "profit": profit,
     }
-    return render(request, "core/orders/summary.html", context)
+    return render(request, "core/products/summary.html", context)
 
 
 @login_required
@@ -393,7 +398,8 @@ def make_order(request):
             return render(request, "core/orders/order_made.html", context)
 
         new_order_items = []
-        # create order items
+        order_errors = []
+        # check order items
         for item in items:
             product_check_valid = True
             product = Product.objects.get(id=item.get("id"))
@@ -401,18 +407,31 @@ def make_order(request):
             # if the product does not exist
             if product is None:
                 product_check_valid = False
+                order_errors.append(
+                    {"item": item, "error": f"Product {item.get('id')} not found"}
+                )
 
             # else if stock is less than the required quantity
             elif int(item.get("qty")) > product.stock:
                 product_check_valid = False
 
             # else if the calculated total price send is wrong,
-            elif float(item.get("total_price")) != product.price * int(item.get("qty")):
+            elif float(item.get("total_price")) != float(
+                product.price * int(item.get("qty"))
+            ):
                 product_check_valid = False
+                order_errors.append(
+                    {
+                        "item": item,
+                        "error": f"Product {product} items calculation was wrong",
+                    }
+                )
 
             # if item passed the product checks
             if product_check_valid:
                 new_order_items.append({"product": product, "item": item})
+            else:
+                print(order_errors)
 
         if len(items) != len(new_order_items):
             message = "Something went wrong. Your order could not be initiated."
@@ -423,7 +442,7 @@ def make_order(request):
             try:
                 # create new order
                 order_obj = Order.objects.create(
-                    user=request.user,
+                    user=request.user, code=generate_code(max_length=6)
                 )
                 for ordItem in new_order_items:
                     OrderItem.objects.create(
@@ -533,13 +552,22 @@ def load_out_of_stock(request):
     return render(request, "core/products/out_of_stock_items.html", context)
 
 
-def retrieve_todays_sale(user, today):
-    order_list = Order.objects.filter(
-        Q(user=user),
-        Q(created__day=today.day),
-        Q(created__month=today.month),
-    ).order_by("created")
-
+def retrieve_todays_sale(
+    date,
+    user=None,
+):
+    order_list = None
+    if user is None:
+        order_list = Order.objects.filter(
+            Q(created__day=date.day),
+            Q(created__month=date.month),
+        ).order_by("created")
+    else:
+        order_list = Order.objects.filter(
+            Q(user=user),
+            Q(created__day=date.day),
+            Q(created__month=date.month),
+        ).order_by("created")
     aggregated = order_list.aggregate(sum_total=Sum("overall_amount_paid"))
 
     return order_list, aggregated["sum_total"]
@@ -548,11 +576,41 @@ def retrieve_todays_sale(user, today):
 @login_required
 @user_passes_test(is_admin)
 def today_orders(request):
-    today = dt.date.today()
-    orders, sum_total = retrieve_todays_sale(request.user, today)
-
-    context = {"orders": orders, "todays_total_orders": sum_total}
+    created_order_dates = (
+        Order.objects.values("created")
+        .distinct("created__day")
+        .order_by("-created__day")
+    )
+    dates = [
+        dt.date(
+            year=created_dates["created"].year,
+            month=created_dates["created"].month,
+            day=created_dates["created"].day,
+        )
+        for created_dates in created_order_dates
+    ]
+    context = {"dates": dates, "users": Account.objects.all()}
     return render(request, "core/orders/todays_orders.html", context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def fetch_days_orders(request):
+    if request.method == "POST":
+        date = request.POST.get("order_date")
+        users = request.POST.get("users")
+
+        today = dt.datetime.strptime(date, "%Y-%m-%d")
+        orders, sum_total = retrieve_todays_sale(user=None, date=today)
+        if users != "all":
+            users = Account.objects.get(pk=users)
+            # order_lists = order_lists.filter(user=users)
+            orders, sum_total = retrieve_todays_sale(user=users, date=today)
+
+        context = {"orders": orders, "todays_total_orders": sum_total, "date": date}
+        return render(request, "core/orders/all_orders.html", context)
+    else:
+        return HttpResponse("Not Allowed!")
 
 
 @login_required
@@ -595,7 +653,9 @@ def view_order(request, order_id, order_number):
 def print_order_pdf(request, order_id, order_number):
     order = Order.objects.get(id=order_id)
     context = {"order": order, "order_number": order_number}
-    filename = "Invoice_%s.pdf" % (order_id)
+    today = dt.datetime.now()
+    todays_date = f"{today:%d%m%Y%H%M%S}"
+    filename = f"Invoice-{order.code}-{todays_date}.pdf"
     pdf = render_attached_pdf(
         relative_template_path="core/orders/prints/order_details.html",
         context=context,
@@ -607,10 +667,21 @@ def print_order_pdf(request, order_id, order_number):
 @login_required
 @user_passes_test(is_admin)
 def retrive_reports(request):
+    today = dt.date.today()
+    this_week_number = today.isocalendar().week
+    this_year_number = today.year
+    week_start_date = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
+    week_end_date = week_start_date + dt.timedelta(days=7)
+    week_start = dt.date(year=today.year, month=today.month, day=week_start_date.day)
+    week_end = dt.date(year=today.year, month=today.month, day=week_end_date.day - 1)
+
+    start_date = f"{week_start:%Y-%m-%d}"
+    end_date = f"{week_end:%Y-%m-%d}"
+    users = Account.objects.all()
     return render(
         request,
         "core/orders/sales_reports.html",
-        {},
+        {"start_date": start_date, "end_date": end_date, "users": users},
     )
 
 
@@ -629,6 +700,16 @@ def generate_reports(order_list):
         total_profit=Sum("total_profit"),
     )
 
+    order_items = (
+        orderitems.values("product__name")
+        .annotate(
+            sum_qty=Sum("qty_bought"),
+            amount=Sum("paid_amount"),
+        )
+        .distinct()
+        .order_by("-sum_qty")
+    )
+
     context = {
         "total_cost": orderitems_summary["total_cost"]
         if orderitems_summary["total_cost"]
@@ -642,6 +723,7 @@ def generate_reports(order_list):
         "profit": orderitems_summary["total_profit"]
         if orderitems_summary["total_profit"]
         else 0_00,
+        "items": order_items,
     }
     return context
 
@@ -653,8 +735,6 @@ def retrive_reports_by_duration(request):
     if request.method == "POST":
         if request.POST.get("duration") != "":
             duration = request.POST.get("duration")
-
-        context = {}
         today = dt.date.today()
         order_lists = []
         if duration == "weekly":
@@ -686,11 +766,13 @@ def retrive_reports_by_duration(request):
                 created__year=today.year,
             )
 
-        context = generate_reports(order_lists)
+        summary = generate_reports(order_lists)
         return render(
             request,
             "core/orders/report.html",
-            context,
+            {
+                "summary": summary,
+            },
         )
     else:
         return HttpResponse("Not allowed")
@@ -700,12 +782,13 @@ def retrive_reports_by_duration(request):
 @user_passes_test(is_admin)
 def retrive_reports_by_dates(request):
     if request.method == "POST":
-        context = {}
         start_date_str = request.POST.get("date_start")
         end_date_str = request.POST.get("date_end")
+        users = request.POST.get("users")
         start_date = None
         end_date = None
-        order_lists = []
+        order_lists: QuerySet[Order] = []
+        summary = None
         if start_date_str != "":
             sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
             start_date = dt.date(year=sYear, month=sMonth, day=sDay)
@@ -716,12 +799,50 @@ def retrive_reports_by_dates(request):
 
         if start_date is not None and end_date is not None:
             order_lists = Order.objects.filter(created__range=(start_date, end_date))
-            context = generate_reports(order_list=order_lists)
+
+        if users != "all":
+            users = Account.objects.get(pk=users)
+            order_lists = order_lists.filter(user=users)
+
+        summary = generate_reports(order_list=order_lists)
 
         return render(
             request,
             "core/orders/report.html",
-            context,
+            {
+                "summary": summary,
+                "start_date": start_date,
+                "end_date": end_date,
+                "users": users,
+            },
         )
     else:
         return HttpResponse("Not allowed")
+
+
+@login_required
+@user_passes_test(is_admin)
+def retrive_reports_print(request, start_date, end_date, users):
+    today = dt.datetime.now()
+    todays_date = f"{today:%d%m%Y%H%M%S}"
+    filename = "Reports_%s.pdf" % (todays_date)
+    context = None
+    if start_date is not None and end_date is not None:
+        order_lists = Order.objects.filter(created__range=(start_date, end_date))
+
+        if users != "all":
+            users = Account.objects.get(username=users)
+            order_lists = order_lists.filter(user=users)
+        context = generate_reports(order_list=order_lists)
+
+        context["start_date"] = dt.datetime.strptime(start_date, "%Y-%m-%d")
+        context["end_date"] = dt.datetime.strptime(end_date, "%Y-%m-%d")
+        context["users"] = users
+
+    pdf = render_attached_pdf(
+        relative_template_path="core/orders/prints/all_reports.html",
+        context=context,
+        file_name=filename,
+    )
+
+    return pdf

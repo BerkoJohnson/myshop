@@ -5,7 +5,10 @@
 <main class="login_page h-full relative">
   <div class="absolute top-0 right-0 w-1/2 bg-gray-900 h-full text-white">
     <div class="flex flex-col pt-16 justify-center">
-      <h1 class="text-4xl mb-16 px-16">Welcome to My Shop</h1>
+      <div class="mb-16 px-16 flex flex-col">
+        <span class="uppercase text-sm leading-tight mb-2">Welcome to </span>
+        <h1 class="text-4xl text-yellow-500 font-semibold">Noble Cosmetics Ltd</h1>
+      </div>
       <div class="px-16 w-full">
         <form class="login_form" action="{% url 'auth:login' %}" method="post">
           {% csrf_token %}

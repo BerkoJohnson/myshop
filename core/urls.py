@@ -1,5 +1,4 @@
-from django.urls import include, path
-from . import views
+from django.urls import include, pathfrom . import views
 
 app_name = "core"
 
@@ -10,6 +9,7 @@ urlpatterns = [
         include(
             [
                 path("", views.products_home, name="products"),
+                path("summary/", views.products_summary, name="products-summary"),
                 path("load-products/", views.load_products, name="load-products"),
                 path(
                     "<uuid:product_id>/update-stocks",
@@ -86,7 +86,6 @@ urlpatterns = [
         include(
             [
                 path("", views.orders, name="orders"),
-                path("summary/", views.orders_summary, name="orders-summary"),
                 path("sell-products/", views.orders_products, name="orders-products"),
                 path(
                     "sell-products/load/",
@@ -94,7 +93,12 @@ urlpatterns = [
                     name="load-orders-products",
                 ),
                 path("make-order/", views.make_order, name="make-order"),
-                path("today-orders/", views.today_orders, name="today-orders"),
+                path("check-orders/", views.today_orders, name="today-orders"),
+                path(
+                    "check-orders/days",
+                    views.fetch_days_orders,
+                    name="fetch-days-orders",
+                ),
                 path(
                     "today-orders/print",
                     views.print_todays_orders,
@@ -125,6 +129,11 @@ urlpatterns = [
                     "sales-reports/by_dates/",
                     views.retrive_reports_by_dates,
                     name="sales-reports-dates",
+                ),
+                path(
+                    "sales-reports/by_dates/print-pdf/<start_date>/<end_date>/<users>/",
+                    views.retrive_reports_print,
+                    name="print-reports",
                 ),
             ]
         ),

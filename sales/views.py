@@ -17,16 +17,14 @@ from django.template import loader
 from django.conf import settings
 import os
 
-from utils import is_sale_person, render_attached_pdf
+from utils import generate_code, is_sale_person, render_attached_pdf
 
 
 @login_required
 @user_passes_test(is_sale_person)
 def index(request):
-    return render(
-        request,
-        "sales/index.html"
-    )
+    return render(request, "sales/index.html")
+
 
 @login_required
 @user_passes_test(is_sale_person)
@@ -77,7 +75,8 @@ def make_order(request):
             return render(request, "sales/orders/order_made.html", context)
 
         new_order_items = []
-        # create order items
+        order_errors = []
+        # check order items
         for item in items:
             product_check_valid = True
             product = Product.objects.get(id=item.get("id"))
@@ -85,18 +84,31 @@ def make_order(request):
             # if the product does not exist
             if product is None:
                 product_check_valid = False
+                order_errors.append(
+                    {"item": item, "error": f"Product {item.get('id')} not found"}
+                )
 
             # else if stock is less than the required quantity
-            elif item.get("qty") > product.stock:
+            elif int(item.get("qty")) > product.stock:
                 product_check_valid = False
 
             # else if the calculated total price send is wrong,
-            elif float(item.get("total_price")) != product.price * int(item.get("qty")):
+            elif float(item.get("total_price")) != float(
+                product.price * int(item.get("qty"))
+            ):
                 product_check_valid = False
+                order_errors.append(
+                    {
+                        "item": item,
+                        "error": f"Product {product} items calculation was wrong",
+                    }
+                )
 
             # if item passed the product checks
             if product_check_valid:
                 new_order_items.append({"product": product, "item": item})
+            else:
+                print(order_errors)
 
         if len(items) != len(new_order_items):
             message = "Something went wrong. Your order could not be initiated."
@@ -107,18 +119,18 @@ def make_order(request):
             try:
                 # create new order
                 order_obj = Order.objects.create(
-                    user=request.user,
+                    user=request.user, code=generate_code(max_length=6)
                 )
                 for ordItem in new_order_items:
-                    order_item = OrderItem.objects.create(
+                    OrderItem.objects.create(
                         order=order_obj,
                         product=ordItem["product"],
-                        qty_bought=ordItem["item"].get("qty"),
+                        qty_bought=int(ordItem["item"].get("qty")),
                         paid_amount=float(ordItem["item"].get("total_price")),
                     )
 
                     # update each product's stock to reflect the last order
-                    ordItem["product"].stock -= ordItem["item"].get("qty")
+                    ordItem["product"].stock -= int(ordItem["item"].get("qty"))
                     ordItem["product"].save()
 
                 # update overall amount paid in this order
@@ -126,7 +138,7 @@ def make_order(request):
                     float(item.get("total_price")) for item in items
                 )
                 order_obj.save()
-            except Exception as e:
+            except Exception:
                 # if anything goes wrong, all changes will be reversed.
                 message = "Your order was not successfully. Try again at a later time."
                 msg_type = "danger"
@@ -149,7 +161,7 @@ def make_order(request):
                     Q(created__lt=date_end),
                 ).order_by("created")
                 order_number = len(order_list)
-                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."
+                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."  # noqa: E501
                 msg_type = "success"
                 context = {
                     "type": msg_type,
@@ -163,6 +175,8 @@ def make_order(request):
 
         context = {"type": msg_type, "message": message}
         return render(request, "sales/orders/order_made.html", context)
+    else:
+        return HttpResponse(b"Not Allowed!")
 
 
 @login_required
@@ -271,6 +285,7 @@ def view_order(request, order_id, order_number):
     context = {"order": order, "order_number": order_number}
     return render(request, "sales/orders/order_details.html", context)
 
+
 @login_required
 @user_passes_test(is_sale_person)
 def print_order_pdf(request, order_id, order_number):
@@ -283,4 +298,3 @@ def print_order_pdf(request, order_id, order_number):
         file_name=filename,
     )
     return pdf
-

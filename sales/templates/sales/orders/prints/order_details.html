@@ -1,18 +1,30 @@
+{% load static %}
 {% load humanize %}
-<h1 style="font-size:3rem; text-align:center;">My Shop</h1>
-<h3 style="font-size:1rem; text-align:center;">Order {{ order_number }} Receipt</h3>
-<div style="text-align:center;">
-  <table>
-    <thead>
+<html>
+  <head>
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/src/output.css">
+  </head>
+  <body>
+<div class="mx-24">
+  <div class="text-center border-b-2 border-gray-200">
+    <h1 class="text-2xl font-semibold text-red-600">Noble Cosmetics Ltd.</h1>
+    <h3 class="font-semibold">Order Receipt</h3>
+    <h3 class="text-sm font-semibold">Receipt No.: <b>{{ order.code }}</b></h3>
+  </div>
+
+<div class="mt-12">
+  <table class="text-xs border-2 border-gray-500 w-full">
+    <thead class="bg-gray-600 text-white" style="background:#666;color:#fff">
       <tr>
-        <th scope="col">Item Name</th>
-        <th scope="col">
+        <th class="w-6 text-center">S/No.</th>
+        <th class="px-3 py-2 border border-gray-100" scope="col">Item Name</th>
+        <th class="px-3 py-2 border border-gray-100" scope="col">
           Unit Price
           <br>
           (GHs)
         </th>
-        <th scope="col">Qty Bought</th>
-        <th scope="col">
+        <th class="px-3 py-2 border border-gray-100" scope="col">Qty Bought</th>
+        <th class="px-3 py-2 border border-gray-100" scope="col">
           Total Price
           <br>
           (GHs)
@@ -22,20 +34,18 @@
     <tbody id="tbody">
       {% for order_item in order.orderitem_set.all %}
         <tr>
-          <td>{{ order_item.product }}</td>
-          <td>{{ order_item.product.price }}</td>
-          <td>{{ order_item.qty_bought }}</td>
-          <td>{{ order_item.paid_amount }}</td>
+          <td class="text-center border border-gray-100">{{ forloop.counter }}</td>
+          <td class="px-3 py-2 border border-gray-100">{{ order_item.product }}</td>
+          <td class="px-3 py-2 border border-gray-100">{{ order_item.product.price }}</td>
+          <td class="px-3 py-2 border border-gray-100">{{ order_item.qty_bought }}</td>
+          <td class="px-3 py-2 border border-gray-100">{{ order_item.paid_amount }}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-<br>
-<br>
-<br>
-<br>
-<div>
+
+<div class="mt-6 border border-gray-500 bg-gray-100 px-2 py-1">
   <div>
     <h4>
       Total Amount Paid:  <span>GHs {{ order.overall_amount_paid }}</span>
@@ -43,3 +53,6 @@
     <small style="color: #444;">Order Completed On: {{ order.created }}</small>
   </div>
 </div>
+
+</body>
+</html>
