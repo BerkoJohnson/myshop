@@ -484,7 +484,7 @@ def make_order(request):
                     Q(created__lt=date_end),
                 ).order_by("created")
                 order_number = len(order_list)
-                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."  # noqa: E501
+                message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
                 msg_type = "success"
                 context = {
                     "type": msg_type,
@@ -607,7 +607,12 @@ def fetch_days_orders(request):
             # order_lists = order_lists.filter(user=users)
             orders, sum_total = retrieve_todays_sale(user=users, date=today)
 
-        context = {"orders": orders, "todays_total_orders": sum_total, "date": date}
+        context = {
+            "orders": orders,
+            "todays_total_orders": sum_total,
+            "date": date,
+            "users": users,
+        }
         return render(request, "core/orders/all_orders.html", context)
     else:
         return HttpResponse("Not Allowed!")
@@ -615,19 +620,23 @@ def fetch_days_orders(request):
 
 @login_required
 @user_passes_test(is_admin)
-def print_todays_orders(request):
-    today = dt.date.today()
+def print_todays_orders(request, date, users):
+    today = dt.datetime.strptime(date, "%Y-%m-%d")
 
-    orders, sum_total = retrieve_todays_sale(request.user, today)
+    orders, sum_total = retrieve_todays_sale(user=None, date=today)
 
-    context = {"orders": orders, "todays_total_orders": sum_total}
+    if users != "all":
+        users = Account.objects.get(username=users)
+        orders, sum_total = retrieve_todays_sale(user=users, date=today)
+
+    context = {
+        "orders": orders,
+        "todays_total_orders": sum_total,
+        "users": users,
+    }
 
     todays_date = f"{today:%d%m%Y}"
     filename = "Sale_%s.pdf" % (todays_date)
-    # css = []
-    # if os.path.isfile(os.path.join(settings.BASE_DIR, '/productionfiles/src/output.css')):
-
-    #     css.append(os.path.join(settings.BASE_DIR, '/productionfiles/src/output.css'))
 
     pdf = render_attached_pdf(
         relative_template_path="core/orders/prints/todays_sales.html",

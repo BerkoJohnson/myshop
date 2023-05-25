@@ -23,7 +23,7 @@
             <td class="w-32 px-3 py-2 font-semibold text-gray-900 dark:text-white"
                 x-text="item.name">
               </td>
-            <td class="flex items-center flex-1 space-x-3">
+            <td class="flex items-center flex-1 space-x-1">
               <button @click="item.qty = subtract(item.qty, item.stock)"
                       class="inline-flex items-center p-1 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-full focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
                       type="button">
@@ -82,8 +82,8 @@
             </td>
           </tr>
         </template>
-        <tr x-cloak x-show="items.length === 0" class="w-full text-center bg-white/50">
-          <td colspan="5" class="w-full text-xl font-medium text-center text-red-500">Cart is empty</td>
+        <tr x-cloak x-show="items.length === 0" class="flex w-full text-center bg-white/50">
+          <td class="flex-1 text-xl font-medium text-center text-red-500 px-4 py-2">Cart is empty</td>
         </tr>
       </tbody>
     </table>

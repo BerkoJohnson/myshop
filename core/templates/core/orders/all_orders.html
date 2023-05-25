@@ -1,6 +1,6 @@
 {% load humanize %}
-<div class="flex flex-col col-span-2 space-y-2">
-    <h3 class="font-semibold border-b-2 border-gray-500 mt-2">Orders [{{ date }}]</h3>
+<div class="flex flex-col col-span-2 space-y-2 bg-gray-200/60 border-2 border-gray-500 px-3 py-2">
+    <h3 class="font-semibold border-b-2 border-gray-500 mt-2 px-2 py-1">Orders &mdash; [{{ date }}]</h3>
         <table id="orders_products_table"
             class="w-full text-xs text-left text-gray-500 border-collapse table-fixed dark:text-gray-400">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -11,7 +11,7 @@
                     <th scope="col" class="flex-1 px-3 py-2 text-center">Time Created</th>
                 </tr>
             </thead>
-            <tbody class="overflow-y-auto block h-[420px]" id="tbody">
+            <tbody class="overflow-y-auto block h-[390px]" id="tbody">
                 {% for order in orders %}
                 <tr
                     class="flex items-center bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
@@ -24,15 +24,21 @@
                     <td class="flex-1 px-3 py-2 text-center">GHs {{ order.overall_amount_paid }}</td>
                     <td class="flex-1 px-3 py-2 text-center">{{ order.created|naturaltime }}</td>
                 </tr>
+                {% empty %}
+                <tr class="flex items-center w-full">
+                    <td class="flex-1 px-2 py-1 text-center"><span class="text-sm text-red-600 font-semibold">NO ORDERS MADE BY {{  users }} ON THIS DATE {{ date }} </span></td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
 
     <div class="flex items-center justify-between px-2 py-1 bg-green-200 border-2 border-green-300">
-        <h3 class="font-semibold text-green-600">Total Sales: GHs {{ todays_total_orders }}</h3>
-        <a href="{% url 'core:print-todays-orders' %}"
+        <h3 class="font-semibold text-green-600">Total Sales: GHs {{ todays_total_orders|default:'0.00' }}</h3>
+        {% if orders|length > 0 %}
+        <a href="{% url 'core:print-todays-orders' date users %}"
             class="text-white bg-gradient-to-r from-fuchsia-500 via-fuchsia-600 to-fuchsia-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-fuchsia-300 dark:focus:ring-fuchsia-800 shadow-lg shadow-fuchsia-500/50 dark:shadow-lg dark:shadow-fuchsia-800/80 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2 ">
-            Print Today's Sales
+            Download Order Report
         </a>
+        {% endif %}
     </div>
 </div>

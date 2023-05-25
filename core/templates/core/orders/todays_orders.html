@@ -1,5 +1,5 @@
 {% load humanize %}
-<div class="flex items-center justify-between w-full bg-gray-500/30 border border-gray-300 px-2 py-1"
+<div class="flex items-center justify-between w-full bg-green-500/30 border border-gray-300 px-2 py-1"
   x-data="{order_date: '', users: 'all'}">
   <h2 class="text-xl font-semibold border-b-2 border-gray-800">All Orders</h2>
   <div class="flex items-center space-x-5">
@@ -30,7 +30,7 @@
   </div>
 </div>
 <div class="grid w-full grid-cols-4 gap-x-8 gap-y-6">
-  <div class="flex flex-col col-span-2" id="all_orders">
+  <div class="flex flex-col col-span-2 px-3 py-2" id="all_orders">
   </div>
-  <div id="order_details" class="col-span-2"></div>
+  <div id="order_details" class="col-span-2 p-2"></div>
 </div>

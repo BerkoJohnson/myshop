@@ -1,4 +1,5 @@
-from django.urls import include, pathfrom . import views
+from django.urls import include, path
+from . import views
 
 app_name = "core"
 
@@ -100,7 +101,7 @@ urlpatterns = [
                     name="fetch-days-orders",
                 ),
                 path(
-                    "today-orders/print",
+                    "checks-orders/<date>/<users>/print",
                     views.print_todays_orders,
                     name="print-todays-orders",
                 ),

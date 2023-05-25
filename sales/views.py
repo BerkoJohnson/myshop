@@ -91,6 +91,12 @@ def make_order(request):
             # else if stock is less than the required quantity
             elif int(item.get("qty")) > product.stock:
                 product_check_valid = False
+                order_errors.append(
+                    {
+                        "item": item,
+                        "error": f"Product {item.get('id')}'s is less than the quantity needed.",
+                    }
+                )
 
             # else if the calculated total price send is wrong,
             elif float(item.get("total_price")) != float(
@@ -105,13 +111,13 @@ def make_order(request):
                 )
 
             # if item passed the product checks
-            if product_check_valid:
-                new_order_items.append({"product": product, "item": item})
-            else:
+            if product_check_valid is False:
                 print(order_errors)
+            else:
+                new_order_items.append({"product": product, "item": item})
 
         if len(items) != len(new_order_items):
-            message = "Something went wrong. Your order could not be initiated."
+            message = "Something weitemsnt wrong. Your order could not be initiated."
             context = {"type": "danger", "message": message}
             return render(request, "sales/orders/order_made.html", context)
 
@@ -161,7 +167,7 @@ def make_order(request):
                     Q(created__lt=date_end),
                 ).order_by("created")
                 order_number = len(order_list)
-                message = f"Your order totaling GHs {order_obj.overall_amount_paid} was successful. Thank you."  # noqa: E501
+                message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
                 msg_type = "success"
                 context = {
                     "type": msg_type,

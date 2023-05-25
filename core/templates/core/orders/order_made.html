@@ -11,7 +11,7 @@
     {% if order_number %}
       <a href="{% url 'core:print-order-pdf' order.id order_number %}"
          class="text-white bg-gradient-to-r from-fuchsia-500 via-fuchsia-600 to-fuchsia-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-fuchsia-300 dark:focus:ring-fuchsia-800 shadow-lg shadow-fuchsia-500/50 dark:shadow-lg dark:shadow-fuchsia-800/80 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2 ">
-        Print Receipt
+        Download Receipt
       </a>
     {% endif %}
   </div>

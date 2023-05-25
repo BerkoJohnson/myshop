@@ -148,6 +148,7 @@ STATICFILES_FINDERS = (
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 )
 
+# AUTHENTICATION SETTINGS
 AUTH_USER_MODEL = "authapp.Account"
 LOGIN_URL = "auth:login"
 LOGIN_REDIRECT_URL = "auth:login_success"
@@ -157,4 +158,6 @@ LOGOUT_REDIRECT_URL = "auth:login"
 # Celery settings
 CELERY_BROKER_URL = "redis://localhost:6379"
 CELERY_RESULT_BACKEND = "redis://localhost:6379"
+
+# WKHTMLTOPDF SETTINGS
 WKHTMLTOPDF_CMD = "/usr/local/bin/wkhtmltopdf"
