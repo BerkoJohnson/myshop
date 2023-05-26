@@ -325,14 +325,17 @@ def orders(request):
 @user_passes_test(is_admin)
 def products_summary(request):
     stock_info = Product.objects.all().aggregate(sum_stock=Sum("stock"))
-    cost_info = Product.objects.all().aggregate(sum_cost=Sum("cost"))
-    orders_info = Product.objects.all().aggregate(sum_orders=Sum("price"))
+    cost_info = Product.objects.annotate(total_cost=F("cost") * F("stock")).aggregate(
+        sum_cost=Sum("total_cost")
+    )
+    sales_info = Product.objects.annotate(
+        total_sales=F("price") * F("stock")
+    ).aggregate(sum_sales=Sum("total_sales"))
+
     profit = 0
 
-    if orders_info["sum_orders"] is not None and cost_info["sum_cost"] is not None:
-        profit = round(
-            float(orders_info["sum_orders"]) - float(cost_info["sum_cost"]), 2
-        )
+    if sales_info["sum_sales"] is not None and cost_info["sum_cost"] is not None:
+        profit = round(float(sales_info["sum_sales"]) - float(cost_info["sum_cost"]), 2)
 
     context = {
         "stock_sum": stock_info["sum_stock"]
@@ -341,8 +344,8 @@ def products_summary(request):
         "cash_invested": cost_info["sum_cost"]
         if cost_info["sum_cost"] is not None
         else 0,
-        "after_orders": orders_info["sum_orders"]
-        if orders_info["sum_orders"] is not None
+        "after_orders": sales_info["sum_sales"]
+        if sales_info["sum_sales"] is not None
         else 0,
         "profit": profit,
     }
@@ -633,6 +636,7 @@ def print_todays_orders(request, date, users):
         "orders": orders,
         "todays_total_orders": sum_total,
         "users": users,
+        "date": today,
     }
 
     todays_date = f"{today:%d%m%Y}"
@@ -798,13 +802,26 @@ def retrive_reports_by_dates(request):
         end_date = None
         order_lists: QuerySet[Order] = []
         summary = None
+
         if start_date_str != "":
-            sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
-            start_date = dt.date(year=sYear, month=sMonth, day=sDay)
+            start_date = timezone.make_aware(
+                dt.datetime.strptime(start_date_str, "%Y-%m-%d")
+            )
+
+            # sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
+            # start_date = timezone.make_aware(
+            #     dt.datetime(year=sYear, month=sMonth, day=sDay)
+            # )
 
         if end_date_str != "":
-            eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
-            end_date = dt.date(year=eYear, month=eMonth, day=eDay)
+            end_date = timezone.make_aware(
+                dt.datetime.strptime(end_date_str, "%Y-%m-%d")
+            )
+
+        #     eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
+        #     end_date = timezone.make_aware(
+        #         dt.datetime(year=eYear, month=eMonth, day=eDay)
+        #     )
 
         if start_date is not None and end_date is not None:
             order_lists = Order.objects.filter(created__range=(start_date, end_date))
@@ -820,8 +837,8 @@ def retrive_reports_by_dates(request):
             "core/orders/report.html",
             {
                 "summary": summary,
-                "start_date": start_date,
-                "end_date": end_date,
+                "start_date": start_date.date(),
+                "end_date": end_date.date(),
                 "users": users,
             },
         )
