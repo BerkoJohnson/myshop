@@ -4,7 +4,6 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from core.models import Product, Order, OrderItem
 import io
-from celery.result import AsyncResult
 from celery_progress.backend import Progress
 import csv
 from django.core.paginator import Paginator
@@ -12,11 +11,7 @@ from django.db.models import Q, Sum, F
 import json
 import datetime as dt
 from django.utils import timezone
-import pdfkit
-from django.template import loader
-from django.conf import settings
-import os
-
+from django.views.decorators.http import require_POST
 from utils import generate_code, is_sale_person, render_attached_pdf
 
 
@@ -61,128 +56,121 @@ def load_orders_products(request):
     return render(request, "sales/orders/products_with_stocks_table_rows.html", context)
 
 
+@require_POST
 @login_required
 @user_passes_test(is_sale_person)
 def make_order(request):
-    items = []
-    if request.method == "POST":
-        items = [json.loads(item) for item in request.POST.getlist("items")]
+    items = [json.loads(item) for item in request.POST.getlist("items")]
 
-        if len(items) == 0:
-            msg_type = "danger"
-            message = "No items in the cart. Add items to the cart and make payment."
-            context = {"type": msg_type, "message": message}
-            return render(request, "sales/orders/order_made.html", context)
-
-        new_order_items = []
-        order_errors = []
-        # check order items
-        for item in items:
-            product_check_valid = True
-            product = Product.objects.get(id=item.get("id"))
-
-            # if the product does not exist
-            if product is None:
-                product_check_valid = False
-                order_errors.append(
-                    {"item": item, "error": f"Product {item.get('id')} not found"}
-                )
-
-            # else if stock is less than the required quantity
-            elif int(item.get("qty")) > product.stock:
-                product_check_valid = False
-                order_errors.append(
-                    {
-                        "item": item,
-                        "error": f"Product {item.get('id')}'s is less than the quantity needed.",
-                    }
-                )
-
-            # else if the calculated total price send is wrong,
-            elif float(item.get("total_price")) != float(
-                product.price * int(item.get("qty"))
-            ):
-                product_check_valid = False
-                order_errors.append(
-                    {
-                        "item": item,
-                        "error": f"Product {product} items calculation was wrong",
-                    }
-                )
-
-            # if item passed the product checks
-            if product_check_valid is False:
-                print(order_errors)
-            else:
-                new_order_items.append({"product": product, "item": item})
-
-        if len(items) != len(new_order_items):
-            message = "Something weitemsnt wrong. Your order could not be initiated."
-            context = {"type": "danger", "message": message}
-            return render(request, "sales/orders/order_made.html", context)
-
-        with transaction.atomic():
-            try:
-                # create new order
-                order_obj = Order.objects.create(
-                    user=request.user, code=generate_code(max_length=6)
-                )
-                for ordItem in new_order_items:
-                    OrderItem.objects.create(
-                        order=order_obj,
-                        product=ordItem["product"],
-                        qty_bought=int(ordItem["item"].get("qty")),
-                        paid_amount=float(ordItem["item"].get("total_price")),
-                    )
-
-                    # update each product's stock to reflect the last order
-                    ordItem["product"].stock -= int(ordItem["item"].get("qty"))
-                    ordItem["product"].save()
-
-                # update overall amount paid in this order
-                order_obj.overall_amount_paid = sum(
-                    float(item.get("total_price")) for item in items
-                )
-                order_obj.save()
-            except Exception:
-                # if anything goes wrong, all changes will be reversed.
-                message = "Your order was not successfully. Try again at a later time."
-                msg_type = "danger"
-            else:
-                # order was successful
-                today = dt.date.today()
-                date_start = timezone.make_aware(
-                    dt.datetime(
-                        year=today.year, month=today.month, day=today.day, hour=6
-                    )
-                )
-                date_end = timezone.make_aware(
-                    dt.datetime(
-                        year=today.year, month=today.month, day=today.day, hour=20
-                    )
-                )
-                order_list = Order.objects.filter(
-                    Q(user=request.user),
-                    Q(created__gte=date_start),
-                    Q(created__lt=date_end),
-                ).order_by("created")
-                order_number = len(order_list)
-                message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
-                msg_type = "success"
-                context = {
-                    "type": msg_type,
-                    "message": message,
-                    "order": order_obj,
-                    "order_number": order_number,
-                }
-                response = render(request, "sales/orders/order_made.html", context)
-                response["HX-TRIGGER"] = "reload_products_with_stocks"
-                return response
-
+    if len(items) == 0:
+        msg_type = "danger"
+        message = "No items in the cart. Add items to the cart and make payment."
         context = {"type": msg_type, "message": message}
         return render(request, "sales/orders/order_made.html", context)
-    else:
-        return HttpResponse(b"Not Allowed!")
+
+    new_order_items = []
+    order_errors = []
+    # check order items
+    for item in items:
+        product_check_valid = True
+        product = Product.objects.get(id=item.get("id"))
+
+        # if the product does not exist
+        if product is None:
+            product_check_valid = False
+            order_errors.append(
+                {"item": item, "error": f"Product {item.get('id')} not found"}
+            )
+
+        # else if stock is less than the required quantity
+        elif int(item.get("qty")) > product.stock:
+            product_check_valid = False
+            order_errors.append(
+                {
+                    "item": item,
+                    "error": f"Product {item.get('id')}'s is less than the quantity needed.",
+                }
+            )
+
+        # else if the calculated total price send is wrong,
+        elif float(item.get("total_price")) != float(
+            product.price * int(item.get("qty"))
+        ):
+            product_check_valid = False
+            order_errors.append(
+                {
+                    "item": item,
+                    "error": f"Product {product} items calculation was wrong",
+                }
+            )
+
+        # if item passed the product checks
+        if product_check_valid is False:
+            print(order_errors)
+        else:
+            new_order_items.append({"product": product, "item": item})
+
+    if len(items) != len(new_order_items):
+        message = "Something weitemsnt wrong. Your order could not be initiated."
+        context = {"type": "danger", "message": message}
+        return render(request, "sales/orders/order_made.html", context)
+
+    with transaction.atomic():
+        try:
+            # create new order
+            order_obj = Order.objects.create(
+                user=request.user, code=generate_code(max_length=6)
+            )
+            for ordItem in new_order_items:
+                OrderItem.objects.create(
+                    order=order_obj,
+                    product=ordItem["product"],
+                    qty_bought=int(ordItem["item"].get("qty")),
+                    paid_amount=float(ordItem["item"].get("total_price")),
+                )
+
+                # update each product's stock to reflect the last order
+                ordItem["product"].stock -= int(ordItem["item"].get("qty"))
+                ordItem["product"].save()
+
+            # update overall amount paid in this order
+            order_obj.overall_amount_paid = sum(
+                float(item.get("total_price")) for item in items
+            )
+            order_obj.save()
+        except Exception:
+            # if anything goes wrong, all changes will be reversed.
+            message = "Your order was not successfully. Try again at a later time."
+            msg_type = "danger"
+        else:
+            # order was successful
+            today = dt.date.today()
+            date_start = timezone.make_aware(
+                dt.datetime(year=today.year, month=today.month, day=today.day, hour=6)
+            )
+            date_end = timezone.make_aware(
+                dt.datetime(year=today.year, month=today.month, day=today.day, hour=20)
+            )
+            order_list = Order.objects.filter(
+                Q(user=request.user),
+                Q(created__gte=date_start),
+                Q(created__lt=date_end),
+            ).order_by("created")
+            order_number = len(order_list)
+            message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
+            msg_type = "success"
+            context = {
+                "type": msg_type,
+                "message": message,
+                "order": order_obj,
+                "order_number": order_number,
+            }
+            response = render(request, "sales/orders/order_made.html", context)
+            response["HX-TRIGGER"] = "reload_products_with_stocks"
+            return response
+
+    context = {"type": msg_type, "message": message}
+    return render(request, "sales/orders/order_made.html", context)
 
 
 @login_required
