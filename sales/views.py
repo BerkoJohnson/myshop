@@ -242,7 +242,7 @@ def retrieve_todays_sale(user, today):
         dt.datetime(year=today.year, month=today.month, day=today.day, hour=6)
     )
     date_end = timezone.make_aware(
-        dt.datetime(year=today.year, month=today.month, day=today.day, hour=21)
+        dt.datetime(year=today.year, month=today.month, day=today.day, hour=22)
     )
 
     order_list = Order.objects.filter(

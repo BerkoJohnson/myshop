@@ -1,7 +1,6 @@
-<div class="grid grid-cols-4 gap-8"
-     x-data="{items: [], calcTotalPrice(item) { item.total_price= parseFloat(item.price * item.qty).toFixed(2); return item.total_price;}, totalPayment() { let amnts = this.items.map(item => parseFloat(item.total_price));return amnts.reduce((a, c)=> a + c, 0).toFixed(2)}, add_to_card(id, name, stock, price) { if (this.items.findIndex(i => i.id === id) === -1) this.items.push({id, name, stock, qty:1, price})}}"
->
-  <div class="col-span-2 ">
+<div class="grid grid-cols-4 gap-x-10"
+     x-data="{items: [], calcTotalPrice(item) { item.total_price= parseFloat(item.price * item.qty).toFixed(2); return item.total_price;}, totalPayment() { let amnts = this.items.map(item => parseFloat(item.total_price));return amnts.reduce((a, c)=> a + c, 0).toFixed(2)}, add_to_card(id, name, stock, price) { if (this.items.findIndex(i => i.id === id) === -1) this.items.push({id, name, stock, qty:1, price})}}">
+  <div class="col-span-2">
     <div class="flex items-center justify-between pb-4">
       <div>
         <h2 class="text-xl font-semibold border-b-2 border-gray-800">All Products</h2>
@@ -30,9 +29,10 @@
                placeholder="Search for items">
       </div>
     </div>
-    <div class="relative shadow-md sm:rounded-lg" >
-      <table id="orders_products_table" class="w-full text-xs text-left text-gray-500 border-collapse table-fixed dark:text-gray-400">
-        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+    <div class="relative shadow-md sm:rounded-lg">
+      <table id="orders_products_table"
+             class="flex flex-col w-full text-xs text-left text-gray-500 border-collapse table-fixed dark:text-gray-400">
+        <thead class="h-8 text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
           <tr class="flex">
             <th scope="col" class="flex-1 px-3 py-2 text-center">Product</th>
             <th scope="col" class="flex-1 px-3 py-2 text-center">In Stock</th>
@@ -40,17 +40,20 @@
             <th scope="col" class="flex-1 px-3 py-2 text-center">Action</th>
           </tr>
         </thead>
-        <tbody hx-target="this" hx-swap="innerHTML" hx-get="{% url 'sales:load-orders-products' %}?p=1&s=" hx-trigger="reload_products_with_stocks from:body" _="on keyup from #table-search remove <#orders_products_table>tbody>tr/>" class="overflow-y-auto block h-[500px]" id="tbody">
-            {% include "sales/orders/products_with_stocks_table_rows.html" %}
+        <tbody hx-target="this"
+               hx-swap="innerHTML"
+               hx-get="{% url 'sales:load-orders-products' %}?p=1&s="
+               hx-trigger="reload_products_with_stocks from:body"
+               _="on keyup from #table-search remove <#orders_products_table>tbody>tr/>"
+               class="block overflow-y-auto h-[400px] md:h-[440px] lg:h-[460px] xl:h-[480px] 2xl:h-[500px]"
+               id="tbody">
+          {% include "sales/orders/products_with_stocks_table_rows.html" %}
         </tbody>
       </table>
     </div>
   </div>
- <div id="cart" class="col-span-2 p-4 pb-0 bg-green-100">
-  {% include "sales/orders/cart_table.html" %}
- </div>
+  <div id="cart" class="col-span-2 p-4 pb-0 bg-green-100">{% include "sales/orders/cart_table.html" %}</div>
 </div>
-
 <script>
   function subtract(qty, stock) { 
     if (qty > 1 ) { 
