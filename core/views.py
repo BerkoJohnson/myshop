@@ -1,5 +1,3 @@
-from itertools import count
-import os
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
 from django.http import HttpResponse
@@ -22,6 +20,8 @@ import json
 import datetime as dt
 from django.utils import timezone
 from django.db.models import QuerySet
+from django_htmx.http import trigger_client_event
+from django.views.decorators.http import require_POST
 
 
 @login_required
@@ -85,18 +85,17 @@ def load_products(request):
     return render(request, "core/partials/table_search.html", context)
 
 
+@require_POST
 @login_required
 @user_passes_test(is_admin)
 def update_product_stock(request, product_id):
     product = Product.objects.get(pk=product_id)
-    if request.method == "POST":
-        stock = request.POST.get("stock")
+    stock = request.POST.get("stock")
 
-        product.stock = stock
-        product.save()
-        context = {"product": product}
-        return render(request, "core/partials/product_table_row.html", context)
-    return HttpResponse(b"Not Allowed")
+    product.stock = stock
+    product.save()
+    context = {"product": product}
+    return render(request, "core/partials/product_table_row.html", context)
 
 
 @login_required
@@ -110,32 +109,32 @@ def import_products(request):
     )
 
 
+@require_POST
+@login_required
+@user_passes_test(is_admin)
 def do_import_products(request):
-    if request.method == "POST":
-        if bool(request.FILES.get("file")):
-            file = io.TextIOWrapper(request.FILES.get("file"))
-            csv_reader = csv.DictReader(file)
-            rows = [row for row in csv_reader if row.get("PRODUCT") != ""]
+    if bool(request.FILES.get("file")):
+        file = io.TextIOWrapper(request.FILES.get("file"))
+        csv_reader = csv.DictReader(file)
+        rows = [row for row in csv_reader if row.get("PRODUCT") != ""]
 
-            import_task = import_products_task.delay(rows)  # type: ignore
-            task_id = import_task.task_id
-            progress = Progress(AsyncResult(task_id))
-            info = progress.get_info()
-            context = {
-                "task_id": task_id,
-                "info": info,
-            }
-            return render(
-                request, "core/products/import_products_progress.html", context
-            )
-        else:
-            context = {"error": "No file submitted"}
+        import_task = import_products_task.delay(rows)  # type: ignore
+        task_id = import_task.task_id
+        progress = Progress(AsyncResult(task_id))
+        info = progress.get_info()
+        context = {
+            "task_id": task_id,
+            "info": info,
+        }
+        return render(request, "core/products/import_products_progress.html", context)
+    else:
+        context = {"error": "No file submitted"}
 
-            return render(
-                request,
-                "core/products/import_products.html",
-                context,
-            )
+        return render(
+            request,
+            "core/products/import_products.html",
+            context,
+        )
 
 
 @login_required
@@ -149,9 +148,10 @@ def track_import_progress(request, task_id):
         "info": info,
     }
     response = render(request, "core/products/import_products_progress.html", context)
-    if info["complete"]:
-        response["HX-TRIGGER"] = "reload_products_table"
-    return response
+    if not info["complete"]:
+        return response
+
+    return trigger_client_event(response, "reload_products_table")
 
 
 @login_required
@@ -172,9 +172,10 @@ def track_remove_product_progress(request, task_id):
         "info": info,
     }
     response = render(request, "core/products/remove_products_progress.html", context)
-    if info["complete"]:
-        response["HX-TRIGGER"] = "reload_products_table"
-    return response
+    if not info["complete"]:
+        return response
+
+    return trigger_client_event(response, "reload_products_table")
 
 
 @login_required
@@ -246,8 +247,7 @@ def add_product(request):
                     "message": "New product successfully saved.",
                 }
                 response = render(request, "core/products/response.html", context)
-                response["HX-TRIGGER"] = "reload_products_table"
-                return response
+                return trigger_client_event(response, "reload_products_table")
 
     context = {"form": form, "form_title": form_title}
     return render(request, "core/products/new_product.html", context)
@@ -284,8 +284,7 @@ def update_product(request, product_id):
                     "message": "Product successfully updated.",
                 }
                 response = render(request, "core/products/response.html", context)
-                response["HX-TRIGGER"] = "reload_products_table"
-                return response
+                return trigger_client_event(response, "reload_products_table")
 
     context = {"form": form, "form_title": form_title, "product": product}
     return render(request, "core/products/new_product.html", context)
@@ -310,8 +309,7 @@ def do_remove_a_product(request, product_id):
         "product": product,
     }
     response = render(request, "core/products/response.html", context)
-    response["HX-TRIGGER"] = "reload_products_table"
-    return response
+    return trigger_client_event(response, "reload_products_table")
 
 
 @login_required
@@ -386,121 +384,118 @@ def load_orders_products(request):
     context = {"page_obj": page_obj}
     return render(request, "core/orders/products_with_stocks_table_rows.html", context)
 
-
+@require_POST
 @login_required
 @user_passes_test(is_admin)  # type: ignore
 def make_order(request):
-    items = []
-    if request.method == "POST":
-        items = [json.loads(item) for item in request.POST.getlist("items")]
+    items = [json.loads(item) for item in request.POST.getlist("items")]
 
-        if len(items) == 0:
-            msg_type = "danger"
-            message = "No items in the cart. Add items to the cart and make payment."
-            context = {"type": msg_type, "message": message}
-            return render(request, "core/orders/order_made.html", context)
-
-        new_order_items = []
-        order_errors = []
-        # check order items
-        for item in items:
-            product_check_valid = True
-            product = Product.objects.get(id=item.get("id"))
-
-            # if the product does not exist
-            if product is None:
-                product_check_valid = False
-                order_errors.append(
-                    {"item": item, "error": f"Product {item.get('id')} not found"}
-                )
-
-            # else if stock is less than the required quantity
-            elif int(item.get("qty")) > product.stock:
-                product_check_valid = False
-
-            # else if the calculated total price send is wrong,
-            elif float(item.get("total_price")) != float(
-                product.price * int(item.get("qty"))
-            ):
-                product_check_valid = False
-                order_errors.append(
-                    {
-                        "item": item,
-                        "error": f"Product {product} items calculation was wrong",
-                    }
-                )
-
-            # if item passed the product checks
-            if product_check_valid:
-                new_order_items.append({"product": product, "item": item})
-            else:
-                print(order_errors)
-
-        if len(items) != len(new_order_items):
-            message = "Something went wrong. Your order could not be initiated."
-            context = {"type": "danger", "message": message}
-            return render(request, "core/orders/order_made.html", context)
-
-        with transaction.atomic():
-            try:
-                # create new order
-                order_obj = Order.objects.create(
-                    user=request.user, code=generate_code(max_length=6)
-                )
-                for ordItem in new_order_items:
-                    OrderItem.objects.create(
-                        order=order_obj,
-                        product=ordItem["product"],
-                        qty_bought=int(ordItem["item"].get("qty")),
-                        paid_amount=float(ordItem["item"].get("total_price")),
-                    )
-
-                    # update each product's stock to reflect the last order
-                    ordItem["product"].stock -= int(ordItem["item"].get("qty"))
-                    ordItem["product"].save()
-
-                # update overall amount paid in this order
-                order_obj.overall_amount_paid = sum(
-                    float(item.get("total_price")) for item in items
-                )
-                order_obj.save()
-            except Exception:
-                # if anything goes wrong, all changes will be reversed.
-                message = "Your order was not successfully. Try again at a later time."
-                msg_type = "danger"
-            else:
-                # order was successful
-                today = dt.date.today()
-                date_start = timezone.make_aware(
-                    dt.datetime(
-                        year=today.year, month=today.month, day=today.day, hour=6
-                    )
-                )
-                date_end = timezone.make_aware(
-                    dt.datetime(
-                        year=today.year, month=today.month, day=today.day, hour=20
-                    )
-                )
-                order_list = Order.objects.filter(
-                    Q(user=request.user),
-                    Q(created__gte=date_start),
-                    Q(created__lt=date_end),
-                ).order_by("created")
-                order_number = len(order_list)
-                message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
-                msg_type = "success"
-                context = {
-                    "type": msg_type,
-                    "message": message,
-                    "order": order_obj,
-                    "order_number": order_number,
-                }
-                response = render(request, "core/orders/order_made.html", context)
-                response["HX-TRIGGER"] = "reload_products_with_stocks"
-                return response
-
+    if len(items) == 0:
+        msg_type = "danger"
+        message = "No items in the cart. Add items to the cart and make payment."
         context = {"type": msg_type, "message": message}
         return render(request, "core/orders/order_made.html", context)
+
+    new_order_items = []
+    order_errors = []
+    # check order items
+    for item in items:
+        product_check_valid = True
+        product = Product.objects.get(id=item.get("id"))
+
+        # if the product does not exist
+        if product is None:
+            product_check_valid = False
+            order_errors.append(
+                {"item": item, "error": f"Product {item.get('id')} not found"}
+            )
+
+        # else if stock is less than the required quantity
+        elif int(item.get("qty")) > product.stock:
+            product_check_valid = False
+
+        # else if the calculated total price send is wrong,
+        elif float(item.get("total_price")) != float(
+            product.price * int(item.get("qty"))
+        ):
+            product_check_valid = False
+            order_errors.append(
+                {
+                    "item": item,
+                    "error": f"Product {product} items calculation was wrong",
+                }
+            )
+
+        # if item passed the product checks
+        if product_check_valid:
+            new_order_items.append({"product": product, "item": item})
+        else:
+            print(order_errors)
+
+    if len(items) != len(new_order_items):
+        message = "Something went wrong. Your order could not be initiated."
+        context = {"type": "danger", "message": message}
+        return render(request, "core/orders/order_made.html", context)
+
+    with transaction.atomic():
+        try:
+            # create new order
+            order_obj = Order.objects.create(
+                user=request.user, code=generate_code(max_length=6)
+            )
+            for ordItem in new_order_items:
+                OrderItem.objects.create(
+                    order=order_obj,
+                    product=ordItem["product"],
+                    qty_bought=int(ordItem["item"].get("qty")),
+                    paid_amount=float(ordItem["item"].get("total_price")),
+                )
+
+                # update each product's stock to reflect the last order
+                ordItem["product"].stock -= int(ordItem["item"].get("qty"))
+                ordItem["product"].save()
+
+            # update overall amount paid in this order
+            order_obj.overall_amount_paid = sum(
+                float(item.get("total_price")) for item in items
+            )
+            order_obj.save()
+        except Exception:
+            # if anything goes wrong, all changes will be reversed.
+            message = "Your order was not successfully. Try again at a later time."
+            msg_type = "danger"
+        else:
+            # order was successful
+            today = dt.date.today()
+            date_start = timezone.make_aware(
+                dt.datetime(
+                    year=today.year, month=today.month, day=today.day, hour=6
+                )
+            )
+            date_end = timezone.make_aware(
+                dt.datetime(
+                    year=today.year, month=today.month, day=today.day, hour=20
+                )
+            )
+            order_list = Order.objects.filter(
+                Q(user=request.user),
+                Q(created__gte=date_start),
+                Q(created__lt=date_end),
+            ).order_by("created")
+            order_number = len(order_list)
+            message = f"Order Number {order_obj.code} totaling GHs {order_obj.overall_amount_paid:.2f} was successful. Thank you."  # noqa: E501
+            msg_type = "success"
+            context = {
+                "type": msg_type,
+                "message": message,
+                "order": order_obj,
+                "order_number": order_number,
+            }
+            response = render(request, "core/orders/order_made.html", context)
+            return trigger_client_event(response, "reload_products_with_stocks")
+
+    context = {"type": msg_type, "message": message}
+    return render(request, "core/orders/order_made.html", context)
 
 
 @login_required
@@ -596,29 +591,27 @@ def today_orders(request):
     return render(request, "core/orders/todays_orders.html", context)
 
 
+@require_POST
 @login_required
 @user_passes_test(is_admin)
 def fetch_days_orders(request):
-    if request.method == "POST":
-        date = request.POST.get("order_date")
-        users = request.POST.get("users")
+    date = request.POST.get("order_date")
+    users = request.POST.get("users")
 
-        today = dt.datetime.strptime(date, "%Y-%m-%d")
-        orders, sum_total = retrieve_todays_sale(user=None, date=today)
-        if users != "all":
-            users = Account.objects.get(pk=users)
-            # order_lists = order_lists.filter(user=users)
-            orders, sum_total = retrieve_todays_sale(user=users, date=today)
+    today = dt.datetime.strptime(date, "%Y-%m-%d")
+    orders, sum_total = retrieve_todays_sale(user=None, date=today)
+    if users != "all":
+        users = Account.objects.get(pk=users)
+        # order_lists = order_lists.filter(user=users)
+        orders, sum_total = retrieve_todays_sale(user=users, date=today)
 
-        context = {
-            "orders": orders,
-            "todays_total_orders": sum_total,
-            "date": date,
-            "users": users,
-        }
-        return render(request, "core/orders/all_orders.html", context)
-    else:
-        return HttpResponse("Not Allowed!")
+    context = {
+        "orders": orders,
+        "todays_total_orders": sum_total,
+        "date": date,
+        "users": users,
+    }
+    return render(request, "core/orders/all_orders.html", context)
 
 
 @login_required
@@ -741,109 +734,99 @@ def generate_reports(order_list):
     return context
 
 
+@require_POST
 @login_required
 @user_passes_test(is_admin)
 def retrive_reports_by_duration(request):
     duration = "weekly"
-    if request.method == "POST":
-        if request.POST.get("duration") != "":
-            duration = request.POST.get("duration")
-        today = dt.date.today()
-        order_lists = []
-        if duration == "weekly":
-            this_week_number = today.isocalendar().week
-            this_year_number = today.year
-            week_start_date = dt.date.fromisocalendar(
-                this_year_number, this_week_number, 1
-            )
-            week_end_date = week_start_date + dt.timedelta(days=7)
-            week_start = dt.date(
-                year=today.year, month=today.month, day=week_start_date.day
-            )
-            week_end = dt.date(
-                year=today.year, month=today.month, day=week_end_date.day
-            )
-            order_lists = Order.objects.filter(created__range=(week_start, week_end))
-        elif duration == "monthly":
-            # month_start = dt.date(year=today.year, month=today.month, day=1)
-            # _, number_of_days = cal.monthrange(year=today.year, month=today.month)
-            # month_end = month_start + dt.timedelta(days=number_of_days - 1)
-            # print(month_start, month_end)
-            order_lists = Order.objects.filter(created__month=today.month)
-        elif duration == "yearly":
-            order_lists = Order.objects.filter(created__year=today.year)
-        else:
-            order_lists = Order.objects.filter(
-                created__day=today.day,
-                created__month=today.month,
-                created__year=today.year,
-            )
-
-        summary = generate_reports(order_lists)
-        return render(
-            request,
-            "core/orders/report.html",
-            {
-                "summary": summary,
-            },
+    if request.POST.get("duration") != "":
+        duration = request.POST.get("duration")
+    today = dt.date.today()
+    order_lists = []
+    if duration == "weekly":
+        this_week_number = today.isocalendar().week
+        this_year_number = today.year
+        week_start_date = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
+        week_end_date = week_start_date + dt.timedelta(days=7)
+        week_start = dt.date(
+            year=today.year, month=today.month, day=week_start_date.day
         )
+        week_end = dt.date(year=today.year, month=today.month, day=week_end_date.day)
+        order_lists = Order.objects.filter(created__range=(week_start, week_end))
+    elif duration == "monthly":
+        # month_start = dt.date(year=today.year, month=today.month, day=1)
+        # _, number_of_days = cal.monthrange(year=today.year, month=today.month)
+        # month_end = month_start + dt.timedelta(days=number_of_days - 1)
+        # print(month_start, month_end)
+        order_lists = Order.objects.filter(created__month=today.month)
+    elif duration == "yearly":
+        order_lists = Order.objects.filter(created__year=today.year)
     else:
-        return HttpResponse("Not allowed")
+        order_lists = Order.objects.filter(
+            created__day=today.day,
+            created__month=today.month,
+            created__year=today.year,
+        )
+
+    summary = generate_reports(order_lists)
+    return render(
+        request,
+        "core/orders/report.html",
+        {
+            "summary": summary,
+        },
+    )
 
 
+@require_POST
 @login_required
 @user_passes_test(is_admin)
 def retrive_reports_by_dates(request):
-    if request.method == "POST":
-        start_date_str = request.POST.get("date_start")
-        end_date_str = request.POST.get("date_end")
-        users = request.POST.get("users")
-        start_date = None
-        end_date = None
-        order_lists: QuerySet[Order] = []
-        summary = None
+    start_date_str = request.POST.get("date_start")
+    end_date_str = request.POST.get("date_end")
+    users = request.POST.get("users")
+    start_date = None
+    end_date = None
+    order_lists: QuerySet[Order] = []
+    summary = None
 
-        if start_date_str != "":
-            start_date = timezone.make_aware(
-                dt.datetime.strptime(start_date_str, "%Y-%m-%d")
-            )
-
-            # sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
-            # start_date = timezone.make_aware(
-            #     dt.datetime(year=sYear, month=sMonth, day=sDay)
-            # )
-
-        if end_date_str != "":
-            end_date = timezone.make_aware(
-                dt.datetime.strptime(end_date_str, "%Y-%m-%d")
-            )
-
-        #     eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
-        #     end_date = timezone.make_aware(
-        #         dt.datetime(year=eYear, month=eMonth, day=eDay)
-        #     )
-
-        if start_date is not None and end_date is not None:
-            order_lists = Order.objects.filter(created__range=(start_date, end_date))
-
-        if users != "all":
-            users = Account.objects.get(pk=users)
-            order_lists = order_lists.filter(user=users)
-
-        summary = generate_reports(order_list=order_lists)
-
-        return render(
-            request,
-            "core/orders/report.html",
-            {
-                "summary": summary,
-                "start_date": start_date.date(),
-                "end_date": end_date.date(),
-                "users": users,
-            },
+    if start_date_str != "":
+        start_date = timezone.make_aware(
+            dt.datetime.strptime(start_date_str, "%Y-%m-%d")
         )
-    else:
-        return HttpResponse("Not allowed")
+
+        # sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
+        # start_date = timezone.make_aware(
+        #     dt.datetime(year=sYear, month=sMonth, day=sDay)
+        # )
+
+    if end_date_str != "":
+        end_date = timezone.make_aware(dt.datetime.strptime(end_date_str, "%Y-%m-%d"))
+
+    #     eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
+    #     end_date = timezone.make_aware(
+    #         dt.datetime(year=eYear, month=eMonth, day=eDay)
+    #     )
+
+    if start_date is not None and end_date is not None:
+        order_lists = Order.objects.filter(created__range=(start_date, end_date))
+
+    if users != "all":
+        users = Account.objects.get(pk=users)
+        order_lists = order_lists.filter(user=users)
+
+    summary = generate_reports(order_list=order_lists)
+
+    return render(
+        request,
+        "core/orders/report.html",
+        {
+            "summary": summary,
+            "start_date": start_date.date(),
+            "end_date": end_date.date(),
+            "users": users,
+        },
+    )
 
 
 @login_required
