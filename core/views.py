@@ -384,6 +384,7 @@ def load_orders_products(request):
     context = {"page_obj": page_obj}
     return render(request, "core/orders/products_with_stocks_table_rows.html", context)
 
+
 @require_POST
 @login_required
 @user_passes_test(is_admin)  # type: ignore
@@ -468,14 +469,10 @@ def make_order(request):
             # order was successful
             today = dt.date.today()
             date_start = timezone.make_aware(
-                dt.datetime(
-                    year=today.year, month=today.month, day=today.day, hour=6
-                )
+                dt.datetime(year=today.year, month=today.month, day=today.day, hour=6)
             )
             date_end = timezone.make_aware(
-                dt.datetime(
-                    year=today.year, month=today.month, day=today.day, hour=20
-                )
+                dt.datetime(year=today.year, month=today.month, day=today.day, hour=20)
             )
             order_list = Order.objects.filter(
                 Q(user=request.user),
@@ -676,10 +673,8 @@ def retrive_reports(request):
     today = dt.date.today()
     this_week_number = today.isocalendar().week
     this_year_number = today.year
-    week_start_date = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
-    week_end_date = week_start_date + dt.timedelta(days=7)
-    week_start = dt.date(year=today.year, month=today.month, day=week_start_date.day)
-    week_end = dt.date(year=today.year, month=today.month, day=week_end_date.day - 1)
+    week_start = dt.date.fromisocalendar(this_year_number, this_week_number, 1)
+    week_end = week_start + dt.timedelta(days=6)
 
     start_date = f"{week_start:%Y-%m-%d}"
     end_date = f"{week_end:%Y-%m-%d}"
@@ -792,29 +787,23 @@ def retrive_reports_by_dates(request):
 
     if start_date_str != "":
         start_date = timezone.make_aware(
-            dt.datetime.strptime(start_date_str, "%Y-%m-%d")
+            dt.datetime.strptime(start_date_str, "%Y-%m-%d") + dt.timedelta(hours=6)
         )
-
-        # sYear, sMonth, sDay = [int(num) for num in start_date_str.split("-")]
-        # start_date = timezone.make_aware(
-        #     dt.datetime(year=sYear, month=sMonth, day=sDay)
-        # )
 
     if end_date_str != "":
         end_date = timezone.make_aware(dt.datetime.strptime(end_date_str, "%Y-%m-%d"))
 
-    #     eYear, eMonth, eDay = [int(num) for num in end_date_str.split("-")]
-    #     end_date = timezone.make_aware(
-    #         dt.datetime(year=eYear, month=eMonth, day=eDay)
-    #     )
-
     if start_date is not None and end_date is not None:
-        order_lists = Order.objects.filter(created__range=(start_date, end_date))
-
+        order_lists = Order.objects.filter(
+            Q(created__date__gte=start_date.date()),
+            Q(created__date__lte=end_date.date()),
+        )
+    print(order_lists)
     if users != "all":
         users = Account.objects.get(pk=users)
         order_lists = order_lists.filter(user=users)
 
+    print(order_lists)
     summary = generate_reports(order_list=order_lists)
 
     return render(
